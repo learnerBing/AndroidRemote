@@ -11,6 +11,12 @@ struct MainTabView: View {
                 }
                 .tag(CastMode.screen)
 
+            DirectTestView()
+                .tabItem {
+                    Label("Test", systemImage: "antenna.radiowaves.left.and.right")
+                }
+                .tag(CastMode.test)
+
             ComingSoonTabView(mode: .photo)
                 .tabItem {
                     Label(CastMode.photo.displayName, systemImage: CastMode.photo.systemImage)
@@ -81,7 +87,7 @@ struct ComingSoonTabView: View {
 
     private var v2Description: String {
         switch mode {
-        case .screen: return ""
+        case .screen, .test: return ""
         case .photo: return "Cast photos from your library to the TV slideshow viewer."
         case .video: return "Play videos from your iPhone on the big screen."
         case .iptv: return "Stream live TV channels from your M3U playlists."

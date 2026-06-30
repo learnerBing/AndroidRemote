@@ -72,18 +72,22 @@ final class ExtensionSignalingServer: @unchecked Sendable {
     private func route(_ raw: String) -> String {
         let lines = raw.split(separator: "\n", omittingEmptySubsequences: false)
         guard let requestLine = lines.first else {
-            return httpResponse(status: 400, body: "Bad request", contentType: "text/plain")
+            return HttpResponseBuilder.response(status: 400, body: "Bad request", contentType: "text/plain", cors: true)
         }
 
         let parts = requestLine.split(separator: " ")
         guard parts.count >= 2 else {
-            return httpResponse(status: 400, body: "Bad request", contentType: "text/plain")
+            return HttpResponseBuilder.response(status: 400, body: "Bad request", contentType: "text/plain", cors: true)
         }
 
         let method = String(parts[0])
         let pathAndQuery = String(parts[1])
         let path = pathAndQuery.split(separator: "?").first.map(String.init) ?? pathAndQuery
-        let query = parseQuery(pathAndQuery)
+        let query = HttpResponseBuilder.parseQuery(pathAndQuery)
+
+        if method == "OPTIONS" {
+            return HttpResponseBuilder.response(status: 204, body: "", contentType: "text/plain", cors: true)
+        }
 
         let body: String
         if let emptyIndex = raw.range(of: "\r\n\r\n") {
@@ -96,7 +100,7 @@ final class ExtensionSignalingServer: @unchecked Sendable {
 
         switch (method, path) {
         case ("GET", "/health"):
-            return jsonResponse(ARCPHealthResponse(ok: true))
+            return HttpResponseBuilder.json(ARCPHealthResponse(ok: true), cors: true)
         case ("GET", "/sdp/offer"):
             return handleOfferGet(query: query)
         case ("GET", "/sdp"):
@@ -110,31 +114,31 @@ final class ExtensionSignalingServer: @unchecked Sendable {
         case ("GET", "/status"):
             return handleStatus(query: query)
         default:
-            return httpResponse(status: 404, body: "Not found", contentType: "text/plain")
+            return HttpResponseBuilder.response(status: 404, body: "Not found", contentType: "text/plain", cors: true)
         }
     }
 
     private func handleOfferGet(query: [String: String]) -> String {
         guard let sessionId = query["sessionId"],
               let offer = locked({ sessions[sessionId]?.offer }) else {
-            return httpResponse(status: 204, body: "", contentType: "application/json")
+            return HttpResponseBuilder.response(status: 204, body: "", contentType: "application/json", cors: true)
         }
         let message = ARCPSdpMessage(sessionId: sessionId, type: "offer", sdp: offer)
-        return jsonResponse(message)
+        return HttpResponseBuilder.json(message, cors: true)
     }
 
     private func handleAnswerGet(query: [String: String]) -> String {
         guard let sessionId = query["sessionId"],
               let answer = locked({ sessions[sessionId]?.answer }) else {
-            return httpResponse(status: 204, body: "", contentType: "application/json")
+            return HttpResponseBuilder.response(status: 204, body: "", contentType: "application/json", cors: true)
         }
         let message = ARCPSdpMessage(sessionId: sessionId, type: "answer", sdp: answer)
-        return jsonResponse(message)
+        return HttpResponseBuilder.json(message, cors: true)
     }
 
     private func handleSdpPost(body: String) -> String {
         guard let message = try? JSONDecoder().decode(ARCPSdpMessage.self, from: Data(body.utf8)) else {
-            return httpResponse(status: 400, body: "Invalid JSON", contentType: "text/plain")
+            return HttpResponseBuilder.response(status: 400, body: "Invalid JSON", contentType: "text/plain", cors: true)
         }
         lock.lock()
         var session = sessions[message.sessionId] ?? SessionState()
@@ -146,7 +150,7 @@ final class ExtensionSignalingServer: @unchecked Sendable {
         }
         sessions[message.sessionId] = session
         lock.unlock()
-        return jsonResponse(["ok": true])
+        return HttpResponseBuilder.json(["ok": true], cors: true)
     }
 
     private func handleIceGet(query: [String: String]) -> String {
@@ -168,12 +172,12 @@ final class ExtensionSignalingServer: @unchecked Sendable {
         }
         sessions[sessionId] = session
         lock.unlock()
-        return jsonResponse(ARCPIceListResponse(candidates: drained))
+        return HttpResponseBuilder.json(ARCPIceListResponse(candidates: drained), cors: true)
     }
 
     private func handleIcePost(body: String, query: [String: String]) -> String {
         guard let message = try? JSONDecoder().decode(ARCPIceMessage.self, from: Data(body.utf8)) else {
-            return httpResponse(status: 400, body: "Invalid JSON", contentType: "text/plain")
+            return HttpResponseBuilder.response(status: 400, body: "Invalid JSON", contentType: "text/plain", cors: true)
         }
         let side = query["side"] ?? "sender"
         let candidate = IceCandidate(
@@ -190,13 +194,13 @@ final class ExtensionSignalingServer: @unchecked Sendable {
         }
         sessions[message.sessionId] = session
         lock.unlock()
-        return jsonResponse(["ok": true])
+        return HttpResponseBuilder.json(["ok": true], cors: true)
     }
 
     private func handleStatus(query: [String: String]) -> String {
         let sessionId = query["sessionId"] ?? ""
         let state = locked { sessions[sessionId]?.state ?? "waiting" }
-        return jsonResponse(ARCPStatusResponse(state: state))
+        return HttpResponseBuilder.json(ARCPStatusResponse(state: state), cors: true)
     }
 
     // MARK: - Helpers
@@ -205,43 +209,5 @@ final class ExtensionSignalingServer: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return block()
-    }
-
-    private func parseQuery(_ pathAndQuery: String) -> [String: String] {
-        guard let queryStart = pathAndQuery.firstIndex(of: "?") else { return [:] }
-        let query = pathAndQuery[pathAndQuery.index(after: queryStart)...]
-        var result: [String: String] = [:]
-        for pair in query.split(separator: "&") {
-            let kv = pair.split(separator: "=", maxSplits: 1)
-            if kv.count == 2 {
-                result[String(kv[0])] = String(kv[1])
-            }
-        }
-        return result
-    }
-
-    private func jsonResponse<T: Encodable>(_ value: T) -> String {
-        let data = (try? JSONEncoder().encode(value)) ?? Data("{}".utf8)
-        let body = String(data: data, encoding: .utf8) ?? "{}"
-        return httpResponse(status: 200, body: body, contentType: "application/json")
-    }
-
-    private func httpResponse(status: Int, body: String, contentType: String) -> String {
-        let statusText: String
-        switch status {
-        case 200: statusText = "OK"
-        case 204: statusText = "No Content"
-        case 400: statusText = "Bad Request"
-        case 404: statusText = "Not Found"
-        default: statusText = "Error"
-        }
-        return """
-        HTTP/1.1 \(status) \(statusText)\r
-        Content-Type: \(contentType)\r
-        Content-Length: \(body.utf8.count)\r
-        Connection: close\r
-        \r
-        \(body)
-        """
     }
 }

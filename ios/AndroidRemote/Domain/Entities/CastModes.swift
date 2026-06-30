@@ -5,6 +5,7 @@ import Foundation
 /// What the user is casting. V1 implements `.screen` only.
 enum CastMode: String, CaseIterable, Identifiable {
     case screen
+    case test
     case photo
     case video
     case iptv
@@ -16,6 +17,7 @@ enum CastMode: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .screen: return "Mirror"
+        case .test: return "Test"
         case .photo: return "Photos"
         case .video: return "Videos"
         case .iptv: return "IPTV"
@@ -27,6 +29,7 @@ enum CastMode: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .screen: return "rectangle.on.rectangle"
+        case .test: return "antenna.radiowaves.left.and.right"
         case .photo: return "photo.on.rectangle"
         case .video: return "play.rectangle"
         case .iptv: return "tv"
@@ -35,7 +38,7 @@ enum CastMode: String, CaseIterable, Identifiable {
         }
     }
 
-    var isV1: Bool { self == .screen }
+    var isV1: Bool { self == .screen || self == .test }
 }
 
 // MARK: - V2 Media

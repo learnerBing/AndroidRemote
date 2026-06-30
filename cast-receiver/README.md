@@ -4,6 +4,23 @@ Primary TV receiver for V1 screen mirroring — **no Android TV app or Play Deve
 
 Runs as a [Google Cast custom web receiver](https://developers.google.com/cast/docs/web_receiver) on Chromecast and Google TV.
 
+## Direct LAN test (no Chromecast)
+
+Use **`test-receiver.html`** when Cast device registration is not ready:
+
+```
+https://learnerbing.github.io/AndroidRemote/test-receiver.html?iphone=YOUR_IPHONE_IP
+```
+
+1. iPhone app → **Test** tab → copy receiver URL
+2. Open URL in TV browser (or laptop on same Wi‑Fi)
+3. Enter 6-digit code from web page → **Link Receiver**
+4. Start screen broadcast on iPhone
+
+Pairing uses HTTP on iPhone port **8767**; WebRTC signaling on **8766** when broadcast starts.
+
+---
+
 ## Host on GitHub Pages (free, recommended)
 
 This repo includes a workflow that publishes **only** `cast-receiver/` to GitHub Pages over HTTPS.

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AndroidRemote Test Receiver</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+    #waiting { text-align: center; max-width: 36rem; }
+    #waiting h1 { font-size: 2rem; margin-bottom: 0.75rem; color: #58a6ff; }
+    #waiting p { color: #8b949e; font-size: 1rem; margin-bottom: 0.5rem; }
+    #code {
+      font-size: 3.5rem;
+      font-weight: 700;
+      letter-spacing: 0.5rem;
+      margin: 1rem 0;
+      color: #58a6ff;
+    }
+    #video-container {
+      display: none;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      position: fixed;
+      inset: 0;
+    }
+    video { width: 100%; height: 100%; object-fit: contain; }
+    #status { margin-top: 1rem; color: #8b949e; min-height: 1.5rem; }
+    .badge {
+      display: inline-block;
+      background: #238636;
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      margin-bottom: 1rem;
+    }
+    label { display: block; text-align: left; font-size: 0.85rem; color: #8b949e; margin-top: 1rem; }
+    input {
+      width: 100%;
+      margin-top: 0.35rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid #30363d;
+      background: #161b22;
+      color: #e6edf3;
+      font-size: 1rem;
+    }
+    .hint { font-size: 0.8rem; color: #6e7681; margin-top: 1rem; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div id="waiting">
+    <span class="badge">Direct LAN test — no Chromecast</span>
+    <h1>AndroidRemote</h1>
+    <p>Enter this code in the iPhone app → <strong>Test</strong> tab</p>
+    <div id="code">------</div>
+    <label for="iphone-ip">iPhone LAN IP (must match Test tab)</label>
+    <input id="iphone-ip" type="text" placeholder="192.168.1.42" autocomplete="off" />
+    <p id="status">Waiting for iPhone to link…</p>
+    <p class="hint">
+      Open this page on your TV browser, Google TV, or a laptop on the same Wi‑Fi.
+      iPhone and receiver must be on the same network.
+    </p>
+  </div>
+  <div id="video-container">
+    <video id="remote-video" autoplay playsinline></video>
+  </div>
+
+  <script>
+    const STUN = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    const COORD_PORT = 8767;
+    const DEFAULT_SIGNALING_PORT = 8766;
+
+    let sessionId = null;
+    let signalingHost = null;
+    let signalingPort = DEFAULT_SIGNALING_PORT;
+    let peerConnection = null;
+    let icePollTimer = null;
+    let linkPollTimer = null;
+    let webRtcStarted = false;
+
+    const pairingCode = generatePairingCode();
+    document.getElementById('code').textContent = pairingCode;
+
+    const params = new URLSearchParams(location.search);
+    const iphoneInput = document.getElementById('iphone-ip');
+    if (params.get('iphone')) {
+      iphoneInput.value = params.get('iphone');
+    }
+
+    function generatePairingCode() {
+      return String(Math.floor(100000 + Math.random() * 900000));
+    }
+
+    function setStatus(text) {
+      document.getElementById('status').textContent = text;
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function coordinatorUrl(path) {
+      return `http://${iphoneInput.value.trim()}:${COORD_PORT}${path}`;
+    }
+
+    function signalingUrl(path) {
+      return `http://${signalingHost}:${signalingPort}${path}`;
+    }
+
+    async function getJson(url) {
+      const res = await fetch(url);
+      if (res.status === 204) return null;
+      if (!res.ok) return null;
+      return res.json();
+    }
+
+    async function postJson(url, body) {
+      return fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    }
+
+    function showVideo() {
+      document.getElementById('waiting').style.display = 'none';
+      document.getElementById('video-container').style.display = 'block';
+    }
+
+    function startLinkPolling() {
+      if (linkPollTimer) clearInterval(linkPollTimer);
+      linkPollTimer = setInterval(async () => {
+        if (!iphoneInput.value.trim()) return;
+        try {
+          const link = await getJson(
+            coordinatorUrl(`/test/link?code=${encodeURIComponent(pairingCode)}`)
+          );
+          if (link && link.sessionId && link.signalingHost) {
+            clearInterval(linkPollTimer);
+            sessionId = link.sessionId;
+            signalingHost = link.signalingHost;
+            signalingPort = link.signalingPort || DEFAULT_SIGNALING_PORT;
+            setStatus('Linked — start screen broadcast on iPhone');
+            watchForWebRtc();
+          }
+        } catch (e) {
+          setStatus('Cannot reach iPhone — check IP and same Wi‑Fi');
+        }
+      }, 800);
+    }
+
+    async function waitForOffer() {
+      for (let i = 0; i < 180; i++) {
+        const offerMsg = await getJson(
+          signalingUrl(`/sdp/offer?sessionId=${encodeURIComponent(sessionId)}`)
+        );
+        if (offerMsg && offerMsg.type === 'offer' && offerMsg.sdp) return offerMsg.sdp;
+        await sleep(500);
+      }
+      throw new Error('Offer timeout — start screen broadcast on iPhone');
+    }
+
+    function startIcePolling() {
+      if (icePollTimer) clearInterval(icePollTimer);
+      icePollTimer = setInterval(async () => {
+        try {
+          const list = await getJson(
+            signalingUrl(`/ice?sessionId=${encodeURIComponent(sessionId)}&side=sender`)
+          );
+          if (!list || !list.candidates) return;
+          for (const c of list.candidates) {
+            await peerConnection.addIceCandidate({
+              candidate: c.candidate,
+              sdpMid: c.sdpMid,
+              sdpMLineIndex: c.sdpMLineIndex,
+            });
+          }
+        } catch (e) {
+          console.warn('ICE poll error', e);
+        }
+      }, 300);
+    }
+
+    async function startWebRtc() {
+      if (!sessionId || !signalingHost) return;
+      setStatus('Waiting for iPhone screen broadcast…');
+      const offerSdp = await waitForOffer();
+
+      peerConnection = new RTCPeerConnection(STUN);
+      peerConnection.ontrack = (event) => {
+        document.getElementById('remote-video').srcObject = event.streams[0];
+        showVideo();
+      };
+
+      peerConnection.onicecandidate = (event) => {
+        if (!event.candidate) return;
+        postJson(signalingUrl('/ice?side=receiver'), {
+          sessionId,
+          candidate: event.candidate.candidate,
+          sdpMid: event.candidate.sdpMid,
+          sdpMLineIndex: event.candidate.sdpMLineIndex,
+        }).catch(console.error);
+      };
+
+      await peerConnection.setRemoteDescription({ type: 'offer', sdp: offerSdp });
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+
+      await postJson(signalingUrl('/sdp'), {
+        sessionId,
+        type: 'answer',
+        sdp: answer.sdp,
+      });
+
+      startIcePolling();
+    }
+
+    function watchForWebRtc() {
+      const timer = setInterval(() => {
+        if (sessionId && signalingHost && !webRtcStarted) {
+          webRtcStarted = true;
+          clearInterval(timer);
+          startWebRtc().catch((e) => {
+            webRtcStarted = false;
+            console.error(e);
+            setStatus(e.message || 'WebRTC error');
+            watchForWebRtc();
+          });
+        }
+      }, 1000);
+    }
+
+    iphoneInput.addEventListener('change', startLinkPolling);
+    iphoneInput.addEventListener('blur', startLinkPolling);
+    if (iphoneInput.value.trim()) {
+      startLinkPolling();
+    } else {
+      setStatus('Enter iPhone IP from Test tab, then link on iPhone');
+    }
+  </script>
+</body>
+</html>
