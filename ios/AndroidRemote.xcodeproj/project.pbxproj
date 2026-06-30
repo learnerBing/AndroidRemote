@@ -15,6 +15,7 @@
 		11807BBC948B514143136647 /* LocalNetworkAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 542523C727BA6311E53C172E /* LocalNetworkAuthorization.swift */; };
 		1273916E57A8D0EDCB95E595 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 37EDD7E48BE9A9F98075DC7F /* CFNetwork.framework */; };
 		13D272F82E433A8D5236B9F0 /* CastViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 472E81327748B3F60FD13589 /* CastViewModel.swift */; };
+		189632357CA95865A7B7A089 /* BroadcastNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD1FA7A116734A99FDCBE9F /* BroadcastNotification.swift */; };
 		25FCD304BB9C5D81FA45EDDE /* WebRtcBroadcastEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE0C97C413D3DBD087F61B4 /* WebRtcBroadcastEngine.swift */; };
 		26A218F2D60D287D7DE2B770 /* ExtensionSignalingServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54F4D2E878791867866F153C /* ExtensionSignalingServer.swift */; };
 		282634005846673E2B0720B6 /* ReplayKitAudioRingBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DF156F4B3E31C7D7F6964E6 /* ReplayKitAudioRingBuffer.swift */; };
@@ -54,6 +55,7 @@
 		A94F0673998C2302857A9D6F /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC17461FF763E88778BE31A4 /* SampleHandler.swift */; };
 		AC05F242C44FCC7B08C78050 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3574F913253A7A0463C42965 /* AppTheme.swift */; };
 		ACB20A4AEF46E7ABE155AB33 /* TestCoordinatorServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4379DAD61BD6006EA06984C3 /* TestCoordinatorServer.swift */; };
+		AFAFB75E91F8149D4BCE644F /* BroadcastNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD1FA7A116734A99FDCBE9F /* BroadcastNotification.swift */; };
 		B051FBDC955A23668F8FECC8 /* DomainTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E0761C250CAC4DD469396F /* DomainTypes.swift */; };
 		B6C0BD15F59B01E3C7C1A060 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF910251346F9D0027388CA0 /* ContentView.swift */; };
 		B8FEC8779A948AD1F54DB476 /* AndroidRemoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75C840E953000C77C9E4C991 /* AndroidRemoteApp.swift */; };
@@ -165,6 +167,7 @@
 		F6E1007EA662536CA25FB12A /* CastModes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastModes.swift; sourceTree = "<group>"; };
 		F6E525480D60816242E0B64B /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		F7530C71C651B62B5F1C1B24 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		FAD1FA7A116734A99FDCBE9F /* BroadcastNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BroadcastNotification.swift; sourceTree = "<group>"; };
 		FC17461FF763E88778BE31A4 /* SampleHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleHandler.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -328,6 +331,7 @@
 			children = (
 				6C7BC60F2D4B661F9B84A290 /* ARCPModels.swift */,
 				06A3C740AFD5766BBF357700 /* ARLog.swift */,
+				FAD1FA7A116734A99FDCBE9F /* BroadcastNotification.swift */,
 				01DE87AB7EDF80C41EFFD047 /* CastConfig.swift */,
 				E2E0761C250CAC4DD469396F /* DomainTypes.swift */,
 				54F4D2E878791867866F153C /* ExtensionSignalingServer.swift */,
@@ -483,6 +487,7 @@
 				};
 			};
 			buildConfigurationList = 0DC6836DD9AA25FD63FFDE60 /* Build configuration list for PBXProject "AndroidRemote" */;
+			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -496,7 +501,6 @@
 				6E24B6DDCD6129F1A92FE18A /* XCRemoteSwiftPackageReference "WebRTC" */,
 			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 8D57626CC157F266D6872079 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -532,6 +536,7 @@
 			files = (
 				28DA508D98827263C826B830 /* ARCPModels.swift in Sources */,
 				0D4873AC10FC938739D95367 /* ARLog.swift in Sources */,
+				189632357CA95865A7B7A089 /* BroadcastNotification.swift in Sources */,
 				D7BBFA446CED26CE7A1B5D17 /* CastConfig.swift in Sources */,
 				D5E70CB808BFDDBDD2757FD1 /* DomainTypes.swift in Sources */,
 				26A218F2D60D287D7DE2B770 /* ExtensionSignalingServer.swift in Sources */,
@@ -556,6 +561,7 @@
 				DB7F2A40F40478B534EC9F41 /* ARLog.swift in Sources */,
 				B8FEC8779A948AD1F54DB476 /* AndroidRemoteApp.swift in Sources */,
 				AC05F242C44FCC7B08C78050 /* AppTheme.swift in Sources */,
+				AFAFB75E91F8149D4BCE644F /* BroadcastNotification.swift in Sources */,
 				E3D21F5A74FF374F3C8658DE /* BroadcastPickerRepresentable.swift in Sources */,
 				BD55FA9BB25453BF6FBAD3F7 /* CastBootstrap.swift in Sources */,
 				FFAA178C2A7FAB621D236574 /* CastConfig.swift in Sources */,
@@ -697,6 +703,7 @@
 		49068623B88ADDC987973FCC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LIBRARY = "libc++";
 				CODE_SIGN_ENTITLEMENTS = BroadcastExtension/BroadcastExtension.entitlements;
 				INFOPLIST_FILE = BroadcastExtension/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -704,6 +711,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
+				OTHER_LDFLAGS = "$(inherited) -ObjC -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = com.androidremote.app.BroadcastExtension;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -793,6 +801,7 @@
 		D943117B871E37FDE0E4358D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LIBRARY = "libc++";
 				CODE_SIGN_ENTITLEMENTS = BroadcastExtension/BroadcastExtension.entitlements;
 				INFOPLIST_FILE = BroadcastExtension/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -800,6 +809,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
+				OTHER_LDFLAGS = "$(inherited) -ObjC -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = com.androidremote.app.BroadcastExtension;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";

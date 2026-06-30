@@ -57,7 +57,7 @@ final class ReplayKitAudioRingBuffer: @unchecked Sendable {
 }
 
 enum ReplayKitAudioExtractor {
-    /// Downmix ReplayKit PCM (Float32 or Int16, any channel count) to mono Int16 at 48 kHz.
+    /// Downmix ReplayKit PCM (Float32 or Int16, interleaved or planar) to mono Int16 at 48 kHz.
     static func monoInt16(from sampleBuffer: CMSampleBuffer) -> [Int16]? {
         guard CMSampleBufferGetNumSamples(sampleBuffer) > 0,
               let formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer),
@@ -68,14 +68,34 @@ enum ReplayKitAudioExtractor {
         let sourceRate = asbd.mSampleRate
         let channels = max(1, Int(asbd.mChannelsPerFrame))
         let frameCount = CMSampleBufferGetNumSamples(sampleBuffer)
+        let isFloat = (asbd.mFormatFlags & kAudioFormatFlagIsFloat) != 0
+        let isPlanar = (asbd.mFormatFlags & kAudioFormatFlagIsNonInterleaved) != 0
+
+        var requiredSize = 0
+        let probeStatus = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
+            sampleBuffer,
+            bufferListSizeNeededOut: &requiredSize,
+            bufferListOut: nil,
+            bufferListSize: 0,
+            blockBufferAllocator: nil,
+            blockBufferMemoryAllocator: nil,
+            flags: kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment,
+            blockBufferOut: nil
+        )
+        guard probeStatus == noErr, requiredSize > 0 else { return nil }
+
+        let listMemory = UnsafeMutableRawPointer.allocate(
+            byteCount: requiredSize,
+            alignment: MemoryLayout<AudioBufferList>.alignment
+        )
+        defer { listMemory.deallocate() }
 
         var blockBuffer: CMBlockBuffer?
-        var audioBufferList = AudioBufferList()
         let status = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
             sampleBuffer,
             bufferListSizeNeededOut: nil,
-            bufferListOut: &audioBufferList,
-            bufferListSize: MemoryLayout<AudioBufferList>.size,
+            bufferListOut: listMemory.assumingMemoryBound(to: AudioBufferList.self),
+            bufferListSize: requiredSize,
             blockBufferAllocator: nil,
             blockBufferMemoryAllocator: nil,
             flags: kCMSampleBufferFlag_AudioBufferList_Assure16ByteAlignment,
@@ -88,49 +108,80 @@ enum ReplayKitAudioExtractor {
         }
         guard status == noErr else { return nil }
 
-        let isFloat = (asbd.mFormatFlags & kAudioFormatFlagIsFloat) != 0
-        let bytesPerSample = isFloat ? MemoryLayout<Float32>.size : MemoryLayout<Int16>.size
-        let buffer = audioBufferList.mBuffers
-        guard let baseAddress = buffer.mData else { return nil }
-
+        let audioBufferList = listMemory.assumingMemoryBound(to: AudioBufferList.self).pointee
         var mono = [Float](repeating: 0, count: frameCount)
-        for frame in 0..<frameCount {
-            var sum: Float = 0
-            for channel in 0..<channels {
-                let offset = (frame * channels + channel) * bytesPerSample
-                if isFloat {
-                    var value: Float32 = 0
-                    memcpy(&value, baseAddress.advanced(by: offset), MemoryLayout<Float32>.size)
-                    sum += value
-                } else {
-                    var value: Int16 = 0
-                    memcpy(&value, baseAddress.advanced(by: offset), MemoryLayout<Int16>.size)
-                    sum += Float(value) / Float(Int16.max)
+
+        if isPlanar {
+            let bufferCount = Int(audioBufferList.mNumberBuffers)
+            guard bufferCount > 0 else { return nil }
+            let buffersPointer = listMemory
+                .advanced(by: MemoryLayout<AudioBufferList>.offset(of: \AudioBufferList.mBuffers)!)
+                .assumingMemoryBound(to: AudioBuffer.self)
+            for frame in 0..<frameCount {
+                var sum: Float = 0
+                let activeChannels = min(channels, bufferCount)
+                for channel in 0..<activeChannels {
+                    let buffer = buffersPointer[channel]
+                    guard let data = buffer.mData else { continue }
+                    let bytesPerSample = isFloat ? MemoryLayout<Float32>.size : MemoryLayout<Int16>.size
+                    let offset = frame * bytesPerSample
+                    guard offset + bytesPerSample <= Int(buffer.mDataByteSize) else { continue }
+                    if isFloat {
+                        var value: Float32 = 0
+                        memcpy(&value, data.advanced(by: offset), MemoryLayout<Float32>.size)
+                        sum += value
+                    } else {
+                        var value: Int16 = 0
+                        memcpy(&value, data.advanced(by: offset), MemoryLayout<Int16>.size)
+                        sum += Float(value) / Float(Int16.max)
+                    }
                 }
+                mono[frame] = sum / Float(activeChannels)
             }
-            mono[frame] = sum / Float(channels)
+        } else {
+            let buffer = audioBufferList.mBuffers
+            guard let baseAddress = buffer.mData else { return nil }
+            let bytesPerSample = isFloat ? MemoryLayout<Float32>.size : MemoryLayout<Int16>.size
+            for frame in 0..<frameCount {
+                var sum: Float = 0
+                for channel in 0..<channels {
+                    let offset = (frame * channels + channel) * bytesPerSample
+                    if isFloat {
+                        var value: Float32 = 0
+                        memcpy(&value, baseAddress.advanced(by: offset), MemoryLayout<Float32>.size)
+                        sum += value
+                    } else {
+                        var value: Int16 = 0
+                        memcpy(&value, baseAddress.advanced(by: offset), MemoryLayout<Int16>.size)
+                        sum += Float(value) / Float(Int16.max)
+                    }
+                }
+                mono[frame] = sum / Float(channels)
+            }
         }
 
+        let normalized: [Int16]
         if abs(sourceRate - Double(ReplayKitAudioRingBuffer.sampleRate)) < 1 {
-            return mono.map { sample in
+            normalized = mono.map { sample in
                 let clamped = max(-1, min(1, sample))
                 return Int16(clamped * Float(Int16.max))
             }
+        } else {
+            let ratio = Double(ReplayKitAudioRingBuffer.sampleRate) / sourceRate
+            let outCount = max(1, Int(Double(frameCount) * ratio))
+            var resampled = [Int16]()
+            resampled.reserveCapacity(outCount)
+            for index in 0..<outCount {
+                let sourcePos = Double(index) / ratio
+                let lower = Int(sourcePos)
+                let upper = min(lower + 1, frameCount - 1)
+                let fraction = Float(sourcePos - Double(lower))
+                let value = mono[lower] * (1 - fraction) + mono[upper] * fraction
+                let clamped = max(-1, min(1, value))
+                resampled.append(Int16(clamped * Float(Int16.max)))
+            }
+            normalized = resampled
         }
-
-        let ratio = Double(ReplayKitAudioRingBuffer.sampleRate) / sourceRate
-        let outCount = max(1, Int(Double(frameCount) * ratio))
-        var resampled = [Int16]()
-        resampled.reserveCapacity(outCount)
-        for index in 0..<outCount {
-            let sourcePos = Double(index) / ratio
-            let lower = Int(sourcePos)
-            let upper = min(lower + 1, frameCount - 1)
-            let fraction = Float(sourcePos - Double(lower))
-            let value = mono[lower] * (1 - fraction) + mono[upper] * fraction
-            let clamped = max(-1, min(1, value))
-            resampled.append(Int16(clamped * Float(Int16.max)))
-        }
-        return resampled
+        return normalized
     }
 }

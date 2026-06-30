@@ -184,8 +184,20 @@
           const link = await getJson(
             relayUrl(`/test/link?code=${encodeURIComponent(pairingCode)}`)
           );
-          if (link && link.sessionId) {
-            clearInterval(linkPollTimer);
+          if (!link || !link.sessionId) return;
+
+          if (sessionId && sessionId !== link.sessionId) {
+            console.log('session changed', sessionId.slice(0, 8), '→', link.sessionId.slice(0, 8));
+            teardownWebRtc('iPhone re-linked — waiting for new broadcast');
+            sessionId = link.sessionId;
+            isTeardown = false;
+            webRtcStarted = false;
+            setStatus(`Re-linked (${sessionId.slice(0, 8)}…) — start broadcast on iPhone`);
+            watchForWebRtc();
+            return;
+          }
+
+          if (!sessionId) {
             sessionId = link.sessionId;
             isTeardown = false;
             setStatus(`Linked (${sessionId.slice(0, 8)}…) — start screen broadcast on iPhone`);
@@ -304,7 +316,9 @@
         bundlePolicy: 'max-bundle',
       });
       peerConnection.addTransceiver('video', { direction: 'recvonly' });
-      peerConnection.addTransceiver('audio', { direction: 'recvonly' });
+      if (/m=audio/.test(offerSdp)) {
+        peerConnection.addTransceiver('audio', { direction: 'recvonly' });
+      }
 
       peerConnection.ontrack = (event) => {
         console.log('ontrack', event.track?.kind, event.track?.readyState);
@@ -357,11 +371,15 @@
       startStatusPolling();
     }
 
+    let webRtcWatchTimer = null;
+
     function watchForWebRtc() {
-      const timer = setInterval(() => {
-        if (sessionId && !webRtcStarted) {
+      if (webRtcWatchTimer) clearInterval(webRtcWatchTimer);
+      webRtcWatchTimer = setInterval(() => {
+        if (sessionId && !webRtcStarted && !isTeardown) {
           webRtcStarted = true;
-          clearInterval(timer);
+          clearInterval(webRtcWatchTimer);
+          webRtcWatchTimer = null;
           startWebRtc().catch((e) => {
             webRtcStarted = false;
             console.error(e);

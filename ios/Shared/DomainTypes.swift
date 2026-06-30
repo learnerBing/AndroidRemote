@@ -47,9 +47,21 @@ struct StreamConfig: Equatable {
     var maxBitrateKbps: Int = 2500
     var minBitrateKbps: Int = 800
     var codec: StreamCodec = .h264
+    /// ReplayKit upload extensions have ~50 MB; custom WebRTC audio adds overhead.
+    var includeAudio: Bool = true
 
     /// Chromecast / extension memory-safe default.
     static let castReceiver = StreamConfig()
+
+    /// Broadcast extension — 720p video-only (stable; audio disabled for extension memory).
+    static let broadcastExtension = StreamConfig(
+        width: 1280,
+        height: 720,
+        fps: 30,
+        maxBitrateKbps: 2500,
+        minBitrateKbps: 800,
+        includeAudio: false
+    )
 
     /// Direct Mac LAN relay — same Wi‑Fi, higher resolution and bitrate.
     static let lanRelay = StreamConfig(

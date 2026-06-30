@@ -31,19 +31,37 @@ enum SessionStore {
 
     private static let snapshotFileName = "active-session.json"
 
-    private static func appGroupContainerURL() -> URL? {
+    static func appGroupContainerURL() -> URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId)
     }
 
-    private static func writeSnapshotFile(_ snapshot: Snapshot) {
-        guard let url = appGroupContainerURL()?.appendingPathComponent(snapshotFileName) else { return }
-        guard let data = try? JSONEncoder().encode(snapshot) else { return }
-        try? data.write(to: url, options: .atomic)
+    private static func writeSnapshotFile(_ snapshot: Snapshot) -> Bool {
+        guard let url = appGroupContainerURL()?.appendingPathComponent(snapshotFileName) else {
+            ARLog.error("Session", "write failed — App Group container unavailable (\(appGroupId))")
+            return false
+        }
+        guard let data = try? JSONEncoder().encode(snapshot) else {
+            ARLog.error("Session", "write failed — encode error")
+            return false
+        }
+        do {
+            try data.write(to: url, options: .atomic)
+            ARLog.info("Session", "wrote file \(snapshotFileName) session=\(ARLog.sessionPrefix(snapshot.sessionId))")
+            return true
+        } catch {
+            ARLog.error("Session", "write failed — \(error.localizedDescription)")
+            return false
+        }
     }
 
     private static func readSnapshotFile() -> Snapshot? {
-        guard let url = appGroupContainerURL()?.appendingPathComponent(snapshotFileName),
-              let data = try? Data(contentsOf: url) else { return nil }
+        guard let url = appGroupContainerURL()?.appendingPathComponent(snapshotFileName) else {
+            ARLog.warn("Session", "read failed — App Group container unavailable")
+            return nil
+        }
+        guard let data = try? Data(contentsOf: url) else {
+            return nil
+        }
         return try? JSONDecoder().decode(Snapshot.self, from: data)
     }
 
@@ -52,31 +70,35 @@ enum SessionStore {
         try? FileManager.default.removeItem(at: url)
     }
 
-    private static func persist(_ snapshot: Snapshot) {
-        writeSnapshotFile(snapshot)
-    }
-
     static func saveDirectTestSession(
         sessionId: String,
         device: CastDevice,
         relayHost: String,
         relayPort: Int
     ) {
-        guard let defaults else { return }
-        defaults.set(sessionId, forKey: Key.sessionId)
-        defaults.set(relayHost, forKey: Key.signalingHost)
-        defaults.set(relayPort, forKey: Key.signalingPort)
-        defaults.set(device.name, forKey: Key.deviceName)
-        defaults.set(SignalingTransport.directLanRelay.rawValue, forKey: Key.transport)
-        defaults.set(true, forKey: Key.isPaired)
-        defaults.synchronize()
-        persist(Snapshot(
+        let snapshot = Snapshot(
             sessionId: sessionId,
             transport: .directLanRelay,
             signalingHost: relayHost,
             signalingPort: relayPort,
             deviceName: device.name
-        ))
+        )
+        guard writeSnapshotFile(snapshot) else {
+            ARLog.error("Session", "save failed — could not write App Group file")
+            return
+        }
+
+        if let defaults {
+            defaults.set(sessionId, forKey: Key.sessionId)
+            defaults.set(relayHost, forKey: Key.signalingHost)
+            defaults.set(relayPort, forKey: Key.signalingPort)
+            defaults.set(device.name, forKey: Key.deviceName)
+            defaults.set(SignalingTransport.directLanRelay.rawValue, forKey: Key.transport)
+            defaults.set(true, forKey: Key.isPaired)
+            defaults.synchronize()
+        } else {
+            ARLog.warn("Session", "UserDefaults suite unavailable — using file snapshot only")
+        }
         ARLog.info("Session", "saved direct test session=\(ARLog.sessionPrefix(sessionId)) relay=\(relayHost):\(relayPort)")
     }
 
@@ -86,6 +108,14 @@ enum SessionStore {
         signalingHost: String,
         signalingPort: Int = CastConfig.signalingPort
     ) {
+        let snapshot = Snapshot(
+            sessionId: sessionId,
+            transport: .castReceiver,
+            signalingHost: signalingHost,
+            signalingPort: signalingPort,
+            deviceName: device.name
+        )
+        _ = writeSnapshotFile(snapshot)
         guard let defaults else { return }
         defaults.set(sessionId, forKey: Key.sessionId)
         defaults.set(signalingHost, forKey: Key.signalingHost)
@@ -93,9 +123,18 @@ enum SessionStore {
         defaults.set(device.name, forKey: Key.deviceName)
         defaults.set(SignalingTransport.castReceiver.rawValue, forKey: Key.transport)
         defaults.set(true, forKey: Key.isPaired)
+        defaults.synchronize()
     }
 
     static func save(session: PairingSession, device: CastDevice) {
+        let snapshot = Snapshot(
+            sessionId: session.sessionId,
+            transport: .nativeTv,
+            signalingHost: device.host,
+            signalingPort: device.port,
+            deviceName: device.name
+        )
+        _ = writeSnapshotFile(snapshot)
         guard let defaults else { return }
         defaults.set(session.sessionId, forKey: Key.sessionId)
         defaults.set(device.host, forKey: Key.signalingHost)
@@ -103,6 +142,7 @@ enum SessionStore {
         defaults.set(device.name, forKey: Key.deviceName)
         defaults.set(SignalingTransport.nativeTv.rawValue, forKey: Key.transport)
         defaults.set(true, forKey: Key.isPaired)
+        defaults.synchronize()
     }
 
     static func load() -> Snapshot? {
@@ -117,7 +157,7 @@ enum SessionStore {
               let name = defaults.string(forKey: Key.deviceName),
               let transportRaw = defaults.string(forKey: Key.transport),
               let transport = SignalingTransport(rawValue: transportRaw) else {
-            ARLog.warn("Session", "load failed — no paired session")
+            ARLog.warn("Session", "load failed — no paired session (container=\(appGroupContainerURL()?.path ?? "nil"))")
             return nil
         }
         let port = defaults.integer(forKey: Key.signalingPort)
@@ -138,6 +178,7 @@ enum SessionStore {
 
     static func clear() {
         ARLog.info("Session", "clear")
+        removeSnapshotFile()
         guard let defaults else { return }
         defaults.removeObject(forKey: Key.sessionId)
         defaults.removeObject(forKey: Key.signalingHost)
@@ -146,6 +187,5 @@ enum SessionStore {
         defaults.removeObject(forKey: Key.transport)
         defaults.set(false, forKey: Key.isPaired)
         defaults.synchronize()
-        removeSnapshotFile()
     }
 }

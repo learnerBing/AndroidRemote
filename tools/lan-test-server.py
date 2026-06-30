@@ -261,7 +261,7 @@ class LanRelayHandler(SimpleHTTPRequestHandler):
                 _offer_poll_counts[sid_prefix(session_id)] = 0
             elif sdp_type == "answer":
                 session["answer"] = sdp
-                session["state"] = "connected"
+                session["state"] = "connecting"
         log_event(
             "sdp_stored",
             client=self.client_ip,

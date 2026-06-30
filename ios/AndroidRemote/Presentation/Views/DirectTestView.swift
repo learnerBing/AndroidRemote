@@ -52,7 +52,7 @@ struct DirectTestView: View {
                 }
 
                 stepCard(number: 2, title: "Open receiver in browser FIRST") {
-                    Text("Must be open before Link Receiver on iPhone:")
+                    Text("Hard refresh after each Link Receiver on iPhone:")
                         .font(.subheadline)
                         .foregroundStyle(.orange)
 
@@ -126,8 +126,39 @@ struct DirectTestView: View {
             Text("Link Receiver must succeed before broadcast.")
                 .font(.caption)
                 .foregroundStyle(.orange)
+            if viewModel.linkedSessionId == nil {
+                Text("No linked session — tap Link Receiver and wait for the green code.")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            } else {
+                Text("Session ready — start broadcast below.")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.success)
+            }
+            Text("Use the in-app button (not Control Center). Video only on this branch — no mic/audio track.")
+                .font(.caption)
+                .foregroundStyle(AppTheme.textSecondary)
+                .multilineTextAlignment(.center)
             BroadcastPickerRepresentable()
                 .frame(width: 52, height: 52)
+                .opacity(viewModel.linkedSessionId == nil ? 0.4 : 1)
+                .disabled(viewModel.linkedSessionId == nil)
+            if viewModel.broadcastActive {
+                Text("Broadcast started — keep this screen open until Live appears.")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.success)
+                    .multilineTextAlignment(.center)
+            } else if viewModel.relayStatus == "broadcasting" {
+                Text("Extension is starting WebRTC…")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.success)
+                    .multilineTextAlignment(.center)
+            } else if viewModel.relayStatus == "connecting" {
+                Text("Negotiating with browser — video should appear soon.")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.success)
+                    .multilineTextAlignment(.center)
+            }
             Spacer()
             Button("Cancel") { viewModel.cancelConnecting() }
                 .foregroundStyle(AppTheme.primary)
@@ -147,6 +178,11 @@ struct DirectTestView: View {
             }
             Text("Recording to Mac browser")
                 .font(.title3.bold())
+            if viewModel.broadcastActive {
+                Text("Broadcast running — waiting for video…")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.success)
+            }
             BroadcastPickerRepresentable().frame(width: 52, height: 52)
             Spacer()
             Button("Stop") { viewModel.resetSession() }

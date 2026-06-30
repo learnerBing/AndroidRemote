@@ -6,10 +6,10 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>AndroidRemote Broadcast</string>
-	<key>CFBundleIconName</key>
-	<string>AppIcon</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -38,5 +38,7 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Connect to the Mac relay on your Wi‑Fi network for WebRTC screen mirroring.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Capture microphone audio for the screen recording stream.</string>
 </dict>
 </plist>

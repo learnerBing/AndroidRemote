@@ -33,6 +33,8 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Allow LAN access so the Mac relay can connect to this iPhone for screen recording.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone audio is mixed into the screen recording when you enable it in the broadcast picker.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

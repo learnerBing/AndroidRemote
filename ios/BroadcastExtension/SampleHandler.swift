@@ -6,15 +6,21 @@ class SampleHandler: RPBroadcastSampleHandler {
     private var signaling = SignalingClient()
     private var webRtcEngine: WebRtcBroadcastEngine?
     private var isStreaming = false
+    private let audioSampleQueue = DispatchQueue(label: "com.androidremote.broadcast.audio")
 
     override func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
         ARLog.info("Broadcast", "broadcastStarted")
+#if canImport(WebRTC)
+        ReplayKitAudioDevice.shared.prepareForBroadcast()
+#endif
         guard let snapshot = SessionStore.load() else {
-            ARLog.error("Broadcast", "no session in App Group — link receiver in Test tab first")
+            let container = SessionStore.appGroupContainerURL()?.path ?? "nil"
+            ARLog.error("Broadcast", "no session in App Group (container=\(container)) — link receiver in app first")
+            BroadcastNotification.postFailed()
             finishBroadcastWithError(NSError(
                 domain: "AndroidRemote",
                 code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "No linked session. Tap Link Receiver in the Test tab, then start broadcast."]
+                userInfo: [NSLocalizedDescriptionKey: "No linked session. Open AndroidRemote → Link Receiver → then start broadcast from the in-app button."]
             ))
             return
         }
@@ -29,8 +35,13 @@ class SampleHandler: RPBroadcastSampleHandler {
             sessionId: snapshot.sessionId
         )
 
-        let streamConfig = snapshot.transport == .directLanRelay ? StreamConfig.lanRelay : StreamConfig.castReceiver
+        // Extension memory budget (~50 MB): use 720p profile, not full lanRelay 1080p.
+        let streamConfig: StreamConfig = snapshot.transport == .directLanRelay
+            ? .broadcastExtension
+            : .castReceiver
+
         signaling = SignalingClient()
+        signaling.bind(snapshot: snapshot)
         let engine = WebRtcBroadcastEngine(signaling: signaling, streamConfig: streamConfig)
         webRtcEngine = engine
 
@@ -42,12 +53,14 @@ class SampleHandler: RPBroadcastSampleHandler {
                         engine.onCaptureReady = { [weak self] in
                             ARLog.info("Broadcast", "video capture ready")
                             self?.isStreaming = true
+                            BroadcastNotification.postStarted()
                         }
                         try await engine.start(session: snapshot)
+                        try? await signaling.updateSessionStatus(sessionId: snapshot.sessionId, state: "broadcasting")
                         ARLog.info("Broadcast", "WebRTC start completed session=\(ARLog.sessionPrefix(snapshot.sessionId))")
                     }
                     group.addTask {
-                        try await Task.sleep(nanoseconds: 60_000_000_000)
+                        try await Task.sleep(nanoseconds: 90_000_000_000)
                         throw CastError.answerTimeout
                     }
                     try await group.next()
@@ -55,6 +68,7 @@ class SampleHandler: RPBroadcastSampleHandler {
                 }
             } catch let error as CastError {
                 ARLog.error("Broadcast", "failed CastError=\(error.localizedDescription) relay=\(snapshot.signalingHost):\(snapshot.signalingPort)")
+                BroadcastNotification.postFailed()
                 finishBroadcastWithError(NSError(
                     domain: "AndroidRemote",
                     code: 2,
@@ -62,6 +76,7 @@ class SampleHandler: RPBroadcastSampleHandler {
                 ))
             } catch {
                 ARLog.error("Broadcast", "failed error=\(error.localizedDescription)")
+                BroadcastNotification.postFailed()
                 finishBroadcastWithError(NSError(
                     domain: "AndroidRemote",
                     code: 3,
@@ -80,18 +95,28 @@ class SampleHandler: RPBroadcastSampleHandler {
         isStreaming = false
         webRtcEngine?.stop()
         webRtcEngine = nil
+#if canImport(WebRTC)
+        ReplayKitAudioDevice.shared.terminateDevice()
+#endif
         ARLog.clearRelay()
+        BroadcastNotification.postFinished()
     }
 
     override func processSampleBuffer(_ sampleBuffer: CMSampleBuffer, with sampleBufferType: RPSampleBufferType) {
-        guard isStreaming else { return }
         switch sampleBufferType {
         case .video:
+            guard isStreaming else { return }
             webRtcEngine?.pushVideoSample(sampleBuffer)
         case .audioApp:
-            webRtcEngine?.pushAppAudioSample(sampleBuffer)
+            guard isStreaming else { return }
+            audioSampleQueue.async { [weak self, sampleBuffer] in
+                self?.webRtcEngine?.pushAppAudioSample(sampleBuffer)
+            }
         case .audioMic:
-            webRtcEngine?.pushMicAudioSample(sampleBuffer)
+            guard isStreaming else { return }
+            audioSampleQueue.async { [weak self, sampleBuffer] in
+                self?.webRtcEngine?.pushMicAudioSample(sampleBuffer)
+            }
         @unknown default:
             break
         }

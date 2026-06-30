@@ -8,6 +8,19 @@ import WebRTC
 
 #if canImport(WebRTC)
 private final class FramePusher: RTCVideoCapturer {}
+
+private enum WebRtcRuntime {
+    private static let lock = NSLock()
+    private static var sslInitialized = false
+
+    static func ensureSSLInitialized() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !sslInitialized else { return }
+        RTCInitializeSSL()
+        sslInitialized = true
+    }
+}
 #endif
 
 /// WebRTC sender used by the Broadcast Upload Extension (offerer role).
@@ -140,6 +153,7 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
         ARLog.info("WebRTC", "sendOffer (initial) session=\(ARLog.sessionPrefix(sessionId)) bytes=\(offer.sdp.count)")
         try await signaling.sendOffer(sessionId: sessionId, sdp: offer.sdp)
         try await flushLocalIceCandidates(sessionId: sessionId)
+        try? await signaling.updateSessionStatus(sessionId: sessionId, state: "connecting")
         ARLog.info("WebRTC", "offer on relay — waiting for answer session=\(ARLog.sessionPrefix(sessionId))")
 
         startOfferRefreshTask(sessionId: sessionId)
@@ -227,17 +241,19 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
     }
 
     private func setupPeerConnection() throws {
-        RTCInitializeSSL()
+        WebRtcRuntime.ensureSSLInitialized()
         let encoderFactory = RTCDefaultVideoEncoderFactory()
         if let h264 = RTCDefaultVideoEncoderFactory.supportedCodecs().first(where: { $0.name == "H264" }) {
             encoderFactory.preferredCodec = h264
         }
         let decoderFactory = RTCDefaultVideoDecoderFactory()
-        factory = RTCPeerConnectionFactory(
+        // Always use custom audio device in the extension — default WebRTC audio touches AVAudioSession and crashes.
+        let factory = RTCPeerConnectionFactory(
             encoderFactory: encoderFactory,
             decoderFactory: decoderFactory,
             audioDevice: audioDevice
         )
+        self.factory = factory
 
         let config = RTCConfiguration()
         config.iceServers = [RTCIceServer(urlStrings: ["stun:stun.l.google.com:19302"])]
@@ -245,10 +261,9 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
         config.continualGatheringPolicy = .gatherContinually
 
         let pcConstraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
-        peerConnection = factory?.peerConnection(with: config, constraints: pcConstraints, delegate: self)
+        peerConnection = factory.peerConnection(with: config, constraints: pcConstraints, delegate: self)
 
-        videoSource = factory?.videoSource()
-        ciContext = CIContext(options: [.useSoftwareRenderer: false])
+        videoSource = factory.videoSource()
         let capturer = FramePusher(delegate: videoSource!)
         videoCapturer = capturer
 
@@ -256,10 +271,7 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
             throw CastError.notConfigured
         }
 
-        let videoTrack = factory?.videoTrack(with: videoSource, trackId: "screen0")
-        guard let videoTrack else {
-            throw CastError.notConfigured
-        }
+        let videoTrack = factory.videoTrack(with: videoSource, trackId: "screen0")
         videoTrack.isEnabled = true
         let transceiverInit = RTCRtpTransceiverInit()
         transceiverInit.direction = .sendOnly
@@ -272,18 +284,18 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
         pc.addTransceiver(with: videoTrack, init: transceiverInit)
         applyVideoSenderParameters()
 
-        let audioTransceiverInit = RTCRtpTransceiverInit()
-        audioTransceiverInit.direction = .sendOnly
-        audioTransceiverInit.streamIds = ["screen-stream"]
-        guard let audioTrack = factory?.audioTrack(withTrackId: "audio0") else {
-            throw CastError.notConfigured
+        if streamConfig.includeAudio {
+            let audioTransceiverInit = RTCRtpTransceiverInit()
+            audioTransceiverInit.direction = .sendOnly
+            audioTransceiverInit.streamIds = ["screen-stream"]
+            let audioTrack = factory.audioTrack(withTrackId: "audio0")
+            audioTrack.isEnabled = true
+            self.audioTrack = audioTrack
+            pc.addTransceiver(with: audioTrack, init: audioTransceiverInit)
+            ARLog.info("WebRTC", "audio track added (ReplayKit app + mic mix)")
         }
-        audioTrack.isEnabled = true
-        self.audioTrack = audioTrack
-        pc.addTransceiver(with: audioTrack, init: audioTransceiverInit)
-        ARLog.info("WebRTC", "audio track added (ReplayKit app + mic mix)")
 
-        DispatchQueue.main.async { [weak self] in
+        factoryQueue.async { [weak self] in
             self?.onCaptureReady?()
         }
     }
@@ -330,6 +342,9 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
             let width = CVPixelBufferGetWidth(pixelBuffer)
             let height = CVPixelBufferGetHeight(pixelBuffer)
             return (pixelBuffer, videoLayout(for: width, height: height))
+        }
+        if ciContext == nil {
+            ciContext = CIContext(options: [.useSoftwareRenderer: true])
         }
         guard let ciContext else {
             let width = CVPixelBufferGetWidth(pixelBuffer)
@@ -560,6 +575,9 @@ extension WebRtcBroadcastEngine: RTCPeerConnectionDelegate {
         switch newState {
         case .connected, .completed:
             extensionSignalingServer.updateConnectionState(sessionId, state: "connected")
+            Task {
+                try? await signaling.updateSessionStatus(sessionId: sessionId, state: "connected")
+            }
         case .disconnected, .failed, .closed:
             extensionSignalingServer.updateConnectionState(sessionId, state: "disconnected")
             Task {

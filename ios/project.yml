@@ -76,6 +76,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
         NSLocalNetworkUsageDescription: "Allow LAN access so the Mac relay can connect to this iPhone for screen recording."
+        NSMicrophoneUsageDescription: "Microphone audio is mixed into the screen recording when you enable it in the broadcast picker."
         NSBonjourServices:
           - _androidremote-test._tcp
         NSAppTransportSecurity:
@@ -87,6 +88,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.androidremote.app.BroadcastExtension
+        OTHER_LDFLAGS: $(inherited) -ObjC -lc++
+        CLANG_CXX_LIBRARY: libc++
     sources:
       - path: BroadcastExtension
       - path: Shared
@@ -106,6 +109,7 @@ targets:
         CFBundleDisplayName: AndroidRemote Broadcast
         CFBundleIconName: AppIcon
         NSLocalNetworkUsageDescription: "Connect to the Mac relay on your Wi‑Fi network for WebRTC screen mirroring."
+        NSMicrophoneUsageDescription: "Capture microphone audio for the screen recording stream."
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         NSExtension:

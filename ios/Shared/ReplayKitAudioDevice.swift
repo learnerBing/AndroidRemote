@@ -12,15 +12,28 @@ final class ReplayKitAudioDevice: NSObject, RTCAudioDevice, @unchecked Sendable 
     private let appBuffer = ReplayKitAudioRingBuffer()
     private let micBuffer = ReplayKitAudioRingBuffer()
     private let queue = DispatchQueue(label: "com.androidremote.replaykit-audio")
+    private let deliverLock = NSLock()
 
     private var delegate_: RTCAudioDeviceDelegate?
     private var shouldRecord = false
     private var recordTimer: DispatchSourceTimer?
     private var pcmScratch = [Int16](repeating: 0, count: 4800)
+    private var deliverScratch = [Int16](repeating: 0, count: 4800)
+    private var mixAppScratch = [Int16](repeating: 0, count: 4800)
+    private var mixMicScratch = [Int16](repeating: 0, count: 4800)
+    private let stateLock = NSLock()
 
     private var delegate: RTCAudioDeviceDelegate? {
-        get { queue.sync { delegate_ } }
-        set { queue.sync { delegate_ = newValue } }
+        get {
+            stateLock.lock()
+            defer { stateLock.unlock() }
+            return delegate_
+        }
+        set {
+            stateLock.lock()
+            delegate_ = newValue
+            stateLock.unlock()
+        }
     }
 
     var deviceInputSampleRate: Double { Double(ReplayKitAudioRingBuffer.sampleRate) }
@@ -47,10 +60,23 @@ final class ReplayKitAudioDevice: NSObject, RTCAudioDevice, @unchecked Sendable 
 
     func terminateDevice() -> Bool {
         stopRecording()
+        queue.sync {
+            appBuffer.clear()
+            micBuffer.clear()
+        }
         delegate = nil
-        appBuffer.clear()
-        micBuffer.clear()
+        ARLog.info("WebRTC", "ReplayKitAudioDevice terminated")
         return true
+    }
+
+    /// Reset buffers between broadcasts without tearing down WebRTC delegate mid-flight.
+    func prepareForBroadcast() {
+        stopRecording()
+        queue.sync {
+            appBuffer.clear()
+            micBuffer.clear()
+        }
+        ARLog.info("WebRTC", "ReplayKitAudioDevice prepared for broadcast")
     }
 
     func initializePlayout() -> Bool { true }
@@ -60,7 +86,8 @@ final class ReplayKitAudioDevice: NSObject, RTCAudioDevice, @unchecked Sendable 
 
     func startRecording() -> Bool {
         queue.sync { shouldRecord = true }
-        delegate?.dispatchAsync { [weak self] in
+        guard let delegate else { return true }
+        delegate.dispatchAsync { [weak self] in
             self?.startRecordPump()
         }
         ARLog.info("WebRTC", "ReplayKitAudioDevice recording started")
@@ -97,41 +124,63 @@ final class ReplayKitAudioDevice: NSObject, RTCAudioDevice, @unchecked Sendable 
 
     private func deliverRecordedFrame() {
         guard shouldRecord, let delegate else { return }
-        let frameCount = UInt32(deviceInputSampleRate * inputIOBufferDuration)
-        guard frameCount > 0, Int(frameCount) <= pcmScratch.count else { return }
+        let frameCount = Int(deviceInputSampleRate * inputIOBufferDuration)
+        guard frameCount > 0, frameCount <= pcmScratch.count else { return }
 
         pcmScratch.withUnsafeMutableBufferPointer { scratch in
             guard let base = scratch.baseAddress else { return }
-            mixIntoOutput(base, frameCount: Int(frameCount))
+            mixIntoOutput(base, frameCount: frameCount)
+        }
 
-            var audioBuffer = AudioBuffer(
-                mNumberChannels: 1,
-                mDataByteSize: UInt32(frameCount * UInt32(MemoryLayout<Int16>.size)),
-                mData: UnsafeMutableRawPointer(base)
-            )
-            var bufferList = AudioBufferList(mNumberBuffers: 1, mBuffers: audioBuffer)
-            var flags: AudioUnitRenderActionFlags = []
-            var timestamp = AudioTimeStamp()
-            timestamp.mFlags = .sampleTimeValid
-            _ = delegate.deliverRecordedData(
-                &flags,
-                &timestamp,
-                0,
-                frameCount,
-                &bufferList,
-                nil,
-                nil
-            )
+        deliverLock.lock()
+        if deliverScratch.count < frameCount {
+            deliverScratch = [Int16](repeating: 0, count: frameCount)
+        }
+        for index in 0..<frameCount {
+            deliverScratch[index] = pcmScratch[index]
+        }
+        deliverLock.unlock()
+
+        delegate.dispatchAsync { [weak self] in
+            guard let self, self.shouldRecord else { return }
+            self.deliverLock.lock()
+            defer { self.deliverLock.unlock() }
+
+            let count = frameCount
+            let byteCount = count * MemoryLayout<Int16>.size
+            self.deliverScratch.withUnsafeMutableBufferPointer { scratch in
+                guard let baseAddress = scratch.baseAddress else { return }
+                var audioBuffer = AudioBuffer(
+                    mNumberChannels: 1,
+                    mDataByteSize: UInt32(byteCount),
+                    mData: UnsafeMutableRawPointer(baseAddress)
+                )
+                var bufferList = AudioBufferList(mNumberBuffers: 1, mBuffers: audioBuffer)
+                var flags: AudioUnitRenderActionFlags = []
+                var timestamp = AudioTimeStamp()
+                timestamp.mFlags = .sampleTimeValid
+                _ = delegate.deliverRecordedData(
+                    &flags,
+                    &timestamp,
+                    0,
+                    UInt32(count),
+                    &bufferList,
+                    nil,
+                    nil
+                )
+            }
         }
     }
 
     private func mixIntoOutput(_ output: UnsafeMutablePointer<Int16>, frameCount: Int) {
-        var appScratch = [Int16](repeating: 0, count: frameCount)
-        var micScratch = [Int16](repeating: 0, count: frameCount)
-        appScratch.withUnsafeMutableBufferPointer { appBuffer.read(into: $0.baseAddress!, frameCount: frameCount) }
-        micScratch.withUnsafeMutableBufferPointer { micBuffer.read(into: $0.baseAddress!, frameCount: frameCount) }
+        if mixAppScratch.count < frameCount {
+            mixAppScratch = [Int16](repeating: 0, count: frameCount)
+            mixMicScratch = [Int16](repeating: 0, count: frameCount)
+        }
+        mixAppScratch.withUnsafeMutableBufferPointer { appBuffer.read(into: $0.baseAddress!, frameCount: frameCount) }
+        mixMicScratch.withUnsafeMutableBufferPointer { micBuffer.read(into: $0.baseAddress!, frameCount: frameCount) }
         for index in 0..<frameCount {
-            let mixed = Int32(appScratch[index]) + Int32(micScratch[index])
+            let mixed = Int32(mixAppScratch[index]) + Int32(mixMicScratch[index])
             let clamped = max(Int32(Int16.min), min(Int32(Int16.max), mixed / 2))
             output[index] = Int16(clamped)
         }

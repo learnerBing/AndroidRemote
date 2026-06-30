@@ -67,7 +67,7 @@ final class SignalingClient: @unchecked Sendable {
         throw lastError
     }
 
-    func pollAnswer(sessionId: String, maxAttempts: Int = 40) async throws -> String {
+    func pollAnswer(sessionId: String, maxAttempts: Int = 120) async throws -> String {
         for _ in 0..<maxAttempts {
             if let answer = try await fetchAnswer(sessionId: sessionId) {
                 return answer
