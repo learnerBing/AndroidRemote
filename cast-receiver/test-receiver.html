@@ -254,6 +254,25 @@
       video.playsInline = true;
       video.play().catch(console.warn);
       showVideo();
+      watchVideoLayout(video);
+    }
+
+    function watchVideoLayout(video) {
+      const apply = () => {
+        const w = video.videoWidth;
+        const h = video.videoHeight;
+        if (!w || !h) return;
+        video.style.transform = '';
+        video.style.width = '100%';
+        video.style.height = '100%';
+        video.style.objectFit = 'contain';
+        console.log('video layout', w, 'x', h, w >= h ? 'landscape' : 'portrait');
+      };
+      video.addEventListener('loadedmetadata', apply);
+      video.addEventListener('resize', apply);
+      if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(apply).observe(video);
+      }
     }
 
     async function startWebRtc() {

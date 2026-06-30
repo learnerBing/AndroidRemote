@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import CoreImage
 
 #if canImport(WebRTC)
 import WebRTC
@@ -28,6 +29,8 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
     private var iceRepublishTask: Task<Void, Never>?
     private var offerSent = false
     private var iceGatheringContinuations: [CheckedContinuation<Void, Never>] = []
+    private var lastAdaptedLayout: ScreenVideoLayout?
+    private var ciContext: CIContext?
     private let factoryQueue = DispatchQueue(label: "com.androidremote.webrtc")
 #endif
 
@@ -73,12 +76,14 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
         iceRepublishTask?.cancel()
         iceRepublishTask = nil
         offerSent = false
+        lastAdaptedLayout = nil
         factoryQueue.sync {
             iceGatheringContinuations.removeAll()
             peerConnection?.close()
             peerConnection = nil
             videoSource = nil
             videoCapturer = nil
+            ciContext = nil
             factory = nil
             localIceCandidates.removeAll()
         }
@@ -92,16 +97,20 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
 
 #if canImport(WebRTC)
     func pushVideoSample(_ sampleBuffer: CMSampleBuffer) {
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
-              let capturer = videoCapturer,
-              let source = videoSource else { return }
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
         let timestampNs = Int64(CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
             * Double(NSEC_PER_SEC))
-        let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
         let rotation = frameRotation(from: sampleBuffer)
-        let frame = RTCVideoFrame(buffer: rtcBuffer, rotation: rotation, timeStampNs: timestampNs)
-        source.capturer(capturer, didCapture: frame)
+
+        factoryQueue.async { [weak self] in
+            guard let self, let capturer = self.videoCapturer, let source = self.videoSource else { return }
+            let (uprightBuffer, layout) = self.uprightPixelBuffer(from: pixelBuffer, rotation: rotation)
+            self.updateOutputFormatIfNeeded(for: layout)
+            let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: uprightBuffer)
+            let frame = RTCVideoFrame(buffer: rtcBuffer, rotation: ._0, timeStampNs: timestampNs)
+            source.capturer(capturer, didCapture: frame)
+        }
     }
 
     private func startWebRtc(sessionId: String) async throws {
@@ -125,6 +134,9 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
         startLocalIceRepublish(sessionId: sessionId)
 
         try await exchangeIce(sessionId: sessionId)
+        try await runOnFactoryQueue {
+            self.applyVideoSenderParameters()
+        }
         ARLog.info("WebRTC", "answer applied session=\(ARLog.sessionPrefix(sessionId))")
         startRemoteIcePolling(sessionId: sessionId)
     }
@@ -205,6 +217,9 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
     private func setupPeerConnection() throws {
         RTCInitializeSSL()
         let encoderFactory = RTCDefaultVideoEncoderFactory()
+        if let h264 = RTCDefaultVideoEncoderFactory.supportedCodecs().first(where: { $0.name == "H264" }) {
+            encoderFactory.preferredCodec = h264
+        }
         let decoderFactory = RTCDefaultVideoDecoderFactory()
         factory = RTCPeerConnectionFactory(encoderFactory: encoderFactory, decoderFactory: decoderFactory)
 
@@ -217,17 +232,13 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
         peerConnection = factory?.peerConnection(with: config, constraints: pcConstraints, delegate: self)
 
         videoSource = factory?.videoSource()
+        ciContext = CIContext(options: [.useSoftwareRenderer: false])
         let capturer = FramePusher(delegate: videoSource!)
         videoCapturer = capturer
 
         guard let videoSource, let pc = peerConnection else {
             throw CastError.notConfigured
         }
-        videoSource.adaptOutputFormat(
-            toWidth: Int32(streamConfig.width),
-            height: Int32(streamConfig.height),
-            fps: Int32(streamConfig.fps)
-        )
 
         let videoTrack = factory?.videoTrack(with: videoSource, trackId: "screen0")
         guard let videoTrack else {
@@ -237,11 +248,126 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
         let transceiverInit = RTCRtpTransceiverInit()
         transceiverInit.direction = .sendOnly
         transceiverInit.streamIds = ["screen-stream"]
+        let encoding = RTCRtpEncodingParameters()
+        encoding.maxBitrateBps = NSNumber(value: streamConfig.maxBitrateKbps * 1000)
+        encoding.minBitrateBps = NSNumber(value: streamConfig.minBitrateKbps * 1000)
+        encoding.maxFramerate = NSNumber(value: streamConfig.fps)
+        transceiverInit.sendEncodings = [encoding]
         pc.addTransceiver(with: videoTrack, init: transceiverInit)
+        applyVideoSenderParameters()
 
         DispatchQueue.main.async { [weak self] in
             self?.onCaptureReady?()
         }
+    }
+
+    private func videoLayout(for width: Int, height: Int) -> ScreenVideoLayout {
+        width >= height ? .landscape : .portrait
+    }
+
+    private func updateOutputFormatIfNeeded(for layout: ScreenVideoLayout) {
+        guard let videoSource else { return }
+        guard layout != lastAdaptedLayout else { return }
+        lastAdaptedLayout = layout
+
+        let (width, height) = streamConfig.outputDimensions(for: layout)
+        videoSource.adaptOutputFormat(
+            toWidth: Int32(width),
+            height: Int32(height),
+            fps: Int32(streamConfig.fps)
+        )
+        ARLog.info(
+            "WebRTC",
+            "adaptOutputFormat \(width)x\(height) layout=\(layout == .portrait ? "portrait" : "landscape")"
+        )
+        scheduleOfferRefreshAfterLayoutChange()
+    }
+
+    private func scheduleOfferRefreshAfterLayoutChange() {
+        guard let sessionId = activeSessionId, offerSent else { return }
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard let self else { return }
+            let sdp = self.factoryQueue.sync { self.peerConnection?.localDescription?.sdp }
+            guard let sdp, !sdp.isEmpty else { return }
+            try? await self.signaling.sendOffer(sessionId: sessionId, sdp: sdp)
+            ARLog.info("WebRTC", "offer refresh after orientation change session=\(ARLog.sessionPrefix(sessionId))")
+        }
+    }
+
+    private func uprightPixelBuffer(
+        from pixelBuffer: CVPixelBuffer,
+        rotation: RTCVideoRotation
+    ) -> (CVPixelBuffer, ScreenVideoLayout) {
+        if rotation == ._0 {
+            let width = CVPixelBufferGetWidth(pixelBuffer)
+            let height = CVPixelBufferGetHeight(pixelBuffer)
+            return (pixelBuffer, videoLayout(for: width, height: height))
+        }
+        guard let ciContext else {
+            let width = CVPixelBufferGetWidth(pixelBuffer)
+            let height = CVPixelBufferGetHeight(pixelBuffer)
+            return (pixelBuffer, videoLayout(for: width, height: height))
+        }
+
+        let image = CIImage(cvPixelBuffer: pixelBuffer)
+            .oriented(forExifOrientation: exifOrientation(for: rotation))
+        let width = Int(image.extent.width)
+        let height = Int(image.extent.height)
+
+        var outBuffer: CVPixelBuffer?
+        let attrs: [String: Any] = [
+            kCVPixelBufferPixelFormatTypeKey as String: CVPixelBufferGetPixelFormatType(pixelBuffer),
+            kCVPixelBufferWidthKey as String: width,
+            kCVPixelBufferHeightKey as String: height,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:] as [String: Any],
+        ]
+        CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            width,
+            height,
+            CVPixelBufferGetPixelFormatType(pixelBuffer),
+            attrs as CFDictionary,
+            &outBuffer
+        )
+        guard let outBuffer else {
+            return (pixelBuffer, videoLayout(for: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer)))
+        }
+        ciContext.render(image, to: outBuffer)
+        return (outBuffer, videoLayout(for: width, height: height))
+    }
+
+    private func exifOrientation(for rotation: RTCVideoRotation) -> Int32 {
+        switch rotation {
+        case ._90: return 6
+        case ._180: return 3
+        case ._270: return 8
+        default: return 1
+        }
+    }
+
+    private func applyVideoSenderParameters() {
+        guard let pc = peerConnection else { return }
+        guard let sender = pc.senders.first(where: { $0.track?.kind == "video" }) else { return }
+
+        var params = sender.parameters
+        if params.encodings.isEmpty {
+            params.encodings = [RTCRtpEncodingParameters()]
+        }
+        let maxBps = streamConfig.maxBitrateKbps * 1000
+        let minBps = streamConfig.minBitrateKbps * 1000
+        for index in params.encodings.indices {
+            params.encodings[index].maxBitrateBps = NSNumber(value: maxBps)
+            params.encodings[index].minBitrateBps = NSNumber(value: minBps)
+            params.encodings[index].maxFramerate = NSNumber(value: streamConfig.fps)
+        }
+        params.degradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
+        sender.parameters = params
+        ARLog.info(
+            "WebRTC",
+            "encoder \(streamConfig.width)x\(streamConfig.height)@\(streamConfig.fps) " +
+            "bitrate \(streamConfig.minBitrateKbps)-\(streamConfig.maxBitrateKbps) kbps H264"
+        )
     }
 
     private func flushLocalIceCandidates(sessionId: String) async throws {

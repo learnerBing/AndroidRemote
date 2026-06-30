@@ -3,15 +3,15 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0404DB96B2310D9D403AB6C6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E2B1445BD276099E3A053195 /* Assets.xcassets */; };
 		05BADE4B90438FC45B967841 /* MirrorCastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B3C74C2D522FDA4D63851D /* MirrorCastView.swift */; };
+		0D4873AC10FC938739D95367 /* ARLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06A3C740AFD5766BBF357700 /* ARLog.swift */; };
 		0E2D3D11481EDA3A82388C29 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF2BA9B5B4A0A73D4052BBED /* AVFoundation.framework */; };
 		0FF0FC9A807BB826EA8EC780 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E8FBC4C973537DA2C26643F /* SessionStore.swift */; };
-		F1A2B3C4D5E60718293A4B01 /* ARLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E60718293A4B03 /* ARLog.swift */; };
-		F1A2B3C4D5E60718293A4B02 /* ARLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E60718293A4B03 /* ARLog.swift */; };
 		11807BBC948B514143136647 /* LocalNetworkAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 542523C727BA6311E53C172E /* LocalNetworkAuthorization.swift */; };
 		1273916E57A8D0EDCB95E595 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 37EDD7E48BE9A9F98075DC7F /* CFNetwork.framework */; };
 		13D272F82E433A8D5236B9F0 /* CastViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 472E81327748B3F60FD13589 /* CastViewModel.swift */; };
@@ -65,6 +65,7 @@
 		D5E70CB808BFDDBDD2757FD1 /* DomainTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E0761C250CAC4DD469396F /* DomainTypes.swift */; };
 		D5F5DDA3396D5EEC838EAB17 /* TestReceiverConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DE4D382DFAD213FD812F229 /* TestReceiverConfig.swift */; };
 		D7BBFA446CED26CE7A1B5D17 /* CastConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01DE87AB7EDF80C41EFFD047 /* CastConfig.swift */; };
+		DB7F2A40F40478B534EC9F41 /* ARLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06A3C740AFD5766BBF357700 /* ARLog.swift */; };
 		DC36AF6E78ED74B4787163A2 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B3B0607FF136D8E261A57C30 /* QuartzCore.framework */; };
 		E098047037B5FB11DA4E9A28 /* MirrorHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB4062C275F9036DE0137E9F /* MirrorHomeView.swift */; };
 		E3D21F5A74FF374F3C8658DE /* BroadcastPickerRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 468E02074B05FB117958D5E8 /* BroadcastPickerRepresentable.swift */; };
@@ -102,9 +103,10 @@
 
 /* Begin PBXFileReference section */
 		01DE87AB7EDF80C41EFFD047 /* CastConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastConfig.swift; sourceTree = "<group>"; };
-		04FFE6DAE47F972E9137F0D2 /* BroadcastExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BroadcastExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		04FFE6DAE47F972E9137F0D2 /* BroadcastExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = BroadcastExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		06A3C740AFD5766BBF357700 /* ARLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARLog.swift; sourceTree = "<group>"; };
 		0A76BBF8056EB884AA746E94 /* SignalingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalingClient.swift; sourceTree = "<group>"; };
-		1BC18A559078F285FA1E1854 /* AndroidRemote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AndroidRemote.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1BC18A559078F285FA1E1854 /* AndroidRemote.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AndroidRemote.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D4BA68B9E53CA77DC3FF033 /* V2RepositoryProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V2RepositoryProtocols.swift; sourceTree = "<group>"; };
 		1DE4D382DFAD213FD812F229 /* TestReceiverConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestReceiverConfig.swift; sourceTree = "<group>"; };
 		22DA1DB74F130931D3BA6707 /* AndroidRemote.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AndroidRemote.entitlements; sourceTree = "<group>"; };
@@ -122,7 +124,6 @@
 		55F4ECA5088BBAC57E34B803 /* SignalingClient+Repository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SignalingClient+Repository.swift"; sourceTree = "<group>"; };
 		5C3CA28A9244B854C49FA3B5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		5FE0C97C413D3DBD087F61B4 /* WebRtcBroadcastEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRtcBroadcastEngine.swift; sourceTree = "<group>"; };
-		F1A2B3C4D5E60718293A4B03 /* ARLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARLog.swift; sourceTree = "<group>"; };
 		6AEFCC5E82A6BB6D0A09FBE6 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		6C7BC60F2D4B661F9B84A290 /* ARCPModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARCPModels.swift; sourceTree = "<group>"; };
 		6E2902F14A838203B9DD94E5 /* HttpResponseBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HttpResponseBuilder.swift; sourceTree = "<group>"; };
@@ -148,6 +149,7 @@
 		D6580DBD81B33B17719E0E9C /* CastBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastBootstrap.swift; sourceTree = "<group>"; };
 		DB3F97EE026559AA9F75E600 /* TestCoordinatorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestCoordinatorService.swift; sourceTree = "<group>"; };
 		DCF0604C6E5DF802B72B183B /* DirectTestViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectTestViewModel.swift; sourceTree = "<group>"; };
+		E2B1445BD276099E3A053195 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E2E0761C250CAC4DD469396F /* DomainTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainTypes.swift; sourceTree = "<group>"; };
 		E48C504D287FA5AED0C54875 /* CastSessionManaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastSessionManaging.swift; sourceTree = "<group>"; };
 		E60AAF35EC11A9ED21A0DD40 /* ConnectingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectingView.swift; sourceTree = "<group>"; };
@@ -319,7 +321,7 @@
 			isa = PBXGroup;
 			children = (
 				6C7BC60F2D4B661F9B84A290 /* ARCPModels.swift */,
-				F1A2B3C4D5E60718293A4B03 /* ARLog.swift */,
+				06A3C740AFD5766BBF357700 /* ARLog.swift */,
 				01DE87AB7EDF80C41EFFD047 /* CastConfig.swift */,
 				E2E0761C250CAC4DD469396F /* DomainTypes.swift */,
 				54F4D2E878791867866F153C /* ExtensionSignalingServer.swift */,
@@ -399,6 +401,7 @@
 		FF6C41627EE579EC5A57C4D2 /* BroadcastExtension */ = {
 			isa = PBXGroup;
 			children = (
+				E2B1445BD276099E3A053195 /* Assets.xcassets */,
 				8FAAC6523620A19CCBA04D56 /* BroadcastExtension.entitlements */,
 				49831B8FECFDFDFF81F5E516 /* Info.plist */,
 				FC17461FF763E88778BE31A4 /* SampleHandler.swift */,
@@ -437,6 +440,7 @@
 			buildConfigurationList = BF89666315E9E127E9B958F0 /* Build configuration list for PBXNativeTarget "BroadcastExtension" */;
 			buildPhases = (
 				A21FCC13F71CAA1F19C99DE3 /* Sources */,
+				AFE17402886719553C8B8DD8 /* Resources */,
 				D02A5754F66646B228A2B9A0 /* Frameworks */,
 			);
 			buildRules = (
@@ -461,9 +465,11 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					2E0339ECEC9623BE3B9EBDF3 = {
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					368B45EA02117DE9786D32E2 = {
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -482,6 +488,7 @@
 				E52F66415338BFF0655CA14F /* XCRemoteSwiftPackageReference "google-cast-spm" */,
 				6E24B6DDCD6129F1A92FE18A /* XCRemoteSwiftPackageReference "WebRTC" */,
 			);
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -500,6 +507,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AFE17402886719553C8B8DD8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0404DB96B2310D9D403AB6C6 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -508,13 +523,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				28DA508D98827263C826B830 /* ARCPModels.swift in Sources */,
+				0D4873AC10FC938739D95367 /* ARLog.swift in Sources */,
 				D7BBFA446CED26CE7A1B5D17 /* CastConfig.swift in Sources */,
 				D5E70CB808BFDDBDD2757FD1 /* DomainTypes.swift in Sources */,
 				26A218F2D60D287D7DE2B770 /* ExtensionSignalingServer.swift in Sources */,
 				FF54AF2FD649956964F940F7 /* HttpResponseBuilder.swift in Sources */,
 				4CAC2157BC0E66A7B6010C53 /* LanAddress.swift in Sources */,
 				A94F0673998C2302857A9D6F /* SampleHandler.swift in Sources */,
-				F1A2B3C4D5E60718293A4B01 /* ARLog.swift in Sources */,
 				0FF0FC9A807BB826EA8EC780 /* SessionStore.swift in Sources */,
 				86A0F1793AC7D6B9F530CA0B /* SignalingClient.swift in Sources */,
 				5D4D4F35FC953121C60D8C43 /* SignalingTransport.swift in Sources */,
@@ -528,8 +543,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				BFC37298DA3B809141098DFE /* ARCPModels.swift in Sources */,
+				DB7F2A40F40478B534EC9F41 /* ARLog.swift in Sources */,
 				B8FEC8779A948AD1F54DB476 /* AndroidRemoteApp.swift in Sources */,
-				F1A2B3C4D5E60718293A4B02 /* ARLog.swift in Sources */,
 				AC05F242C44FCC7B08C78050 /* AppTheme.swift in Sources */,
 				E3D21F5A74FF374F3C8658DE /* BroadcastPickerRepresentable.swift in Sources */,
 				BD55FA9BB25453BF6FBAD3F7 /* CastBootstrap.swift in Sources */,
@@ -586,17 +601,12 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = AndroidRemote/AndroidRemote.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = PLG6B7U4QU;
 				INFOPLIST_FILE = AndroidRemote/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-ObjC",
-					"-lc++",
-				);
+				OTHER_LDFLAGS = "$(inherited) -ObjC -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = com.androidremote.app;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = APP_TARGET;
@@ -676,7 +686,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = BroadcastExtension/BroadcastExtension.entitlements;
-				DEVELOPMENT_TEAM = PLG6B7U4QU;
 				INFOPLIST_FILE = BroadcastExtension/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -695,17 +704,12 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = AndroidRemote/AndroidRemote.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = PLG6B7U4QU;
 				INFOPLIST_FILE = AndroidRemote/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-ObjC",
-					"-lc++",
-				);
+				OTHER_LDFLAGS = "$(inherited) -ObjC -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = com.androidremote.app;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = APP_TARGET;
@@ -778,7 +782,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = BroadcastExtension/BroadcastExtension.entitlements;
-				DEVELOPMENT_TEAM = PLG6B7U4QU;
 				INFOPLIST_FILE = BroadcastExtension/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -3,8 +3,8 @@ import ReplayKit
 /// Broadcast Upload Extension entry — captures screen and streams via WebRTC.
 class SampleHandler: RPBroadcastSampleHandler {
 
-    private let signaling = SignalingClient()
-    private lazy var webRtcEngine = WebRtcBroadcastEngine(signaling: signaling)
+    private var signaling = SignalingClient()
+    private var webRtcEngine: WebRtcBroadcastEngine?
     private var isStreaming = false
 
     override func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
@@ -29,16 +29,21 @@ class SampleHandler: RPBroadcastSampleHandler {
             sessionId: snapshot.sessionId
         )
 
+        let streamConfig = snapshot.transport == .directLanRelay ? StreamConfig.lanRelay : StreamConfig.castReceiver
+        signaling = SignalingClient()
+        let engine = WebRtcBroadcastEngine(signaling: signaling, streamConfig: streamConfig)
+        webRtcEngine = engine
+
         Task {
             do {
                 try await withThrowingTaskGroup(of: Void.self) { group in
                     group.addTask { [weak self] in
-                        guard let self else { return }
-                        self.webRtcEngine.onCaptureReady = { [weak self] in
+                        guard let self, let engine = self.webRtcEngine else { return }
+                        engine.onCaptureReady = { [weak self] in
                             ARLog.info("Broadcast", "video capture ready")
                             self?.isStreaming = true
                         }
-                        try await self.webRtcEngine.start(session: snapshot)
+                        try await engine.start(session: snapshot)
                         ARLog.info("Broadcast", "WebRTC start completed session=\(ARLog.sessionPrefix(snapshot.sessionId))")
                     }
                     group.addTask {
@@ -73,7 +78,8 @@ class SampleHandler: RPBroadcastSampleHandler {
     override func broadcastFinished() {
         ARLog.info("Broadcast", "broadcastFinished")
         isStreaming = false
-        webRtcEngine.stop()
+        webRtcEngine?.stop()
+        webRtcEngine = nil
         ARLog.clearRelay()
     }
 
@@ -81,7 +87,7 @@ class SampleHandler: RPBroadcastSampleHandler {
         guard isStreaming else { return }
         switch sampleBufferType {
         case .video:
-            webRtcEngine.pushVideoSample(sampleBuffer)
+            webRtcEngine?.pushVideoSample(sampleBuffer)
         case .audioApp, .audioMic:
             break // Phase 3: audio pipeline
         @unknown default:

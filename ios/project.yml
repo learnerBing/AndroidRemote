@@ -64,6 +64,16 @@ targets:
       properties:
         CFBundleDisplayName: AndroidRemote
         UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
         NSLocalNetworkUsageDescription: "Allow LAN access so the web receiver and Chromecast can connect to this iPhone for screen mirroring."
         NSBonjourServices:
@@ -82,6 +92,8 @@ targets:
     sources:
       - path: BroadcastExtension
       - path: Shared
+    resources:
+      - path: BroadcastExtension/Assets.xcassets
     dependencies:
       - package: WebRTC
         product: WebRTC
@@ -94,6 +106,7 @@ targets:
       path: BroadcastExtension/Info.plist
       properties:
         CFBundleDisplayName: AndroidRemote Broadcast
+        CFBundleIconName: AppIcon
         NSLocalNetworkUsageDescription: "Connect to the Mac relay on your Wi‑Fi network for WebRTC screen mirroring."
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
