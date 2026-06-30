@@ -2,39 +2,30 @@ import SwiftUI
 
 @MainActor
 final class DirectTestViewModel: ObservableObject {
-    @Published var pairingCode: String = ""
-    @Published var iphoneIP: String = ""
-    @Published var localReceiverBaseURL: String = ""
-    @Published var receiverURL: String = TestReceiverConfig.defaultReceiverBaseURL
+    @Published var detectedCode: String?
+    @Published var relayHost: String = ""
+    @Published var relayPort: String = "8080"
     @Published var connectionState: ConnectionState = .idle
-    @Published var coordinatorRunning = false
-    @Published var localHealthOK = false
-    @Published var localNetworkHint: String?
     @Published var errorMessage: String?
     @Published var showError = false
 
     var canLink: Bool {
-        pairingCode.count == 6 && coordinatorRunning && LanAddress.isValidIPv4(iphoneIP)
+        LanAddress.isValidIPv4(relayHost) && (Int(relayPort) ?? 0) > 0
     }
 
-    var receiverURLWithIP: String {
-        let base: String
-        if !localReceiverBaseURL.trimmingCharacters(in: .whitespaces).isEmpty {
-            base = localReceiverBaseURL.trimmingCharacters(in: .whitespaces)
-                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        } else {
-            base = receiverURL.split(separator: "?").first.map(String.init) ?? receiverURL
+    var receiverPageURL: String {
+        guard LanAddress.isValidIPv4(relayHost), let port = Int(relayPort), port > 0 else {
+            return "http://MAC_IP:8080/test-receiver.html"
         }
-        guard LanAddress.isValidIPv4(iphoneIP) else { return base }
-        return "\(base)?iphone=\(iphoneIP)"
+        return "http://\(relayHost):\(port)/test-receiver.html"
     }
 
-    private let coordinatorService = TestCoordinatorService.shared
     private let sessionRepository = ScreenCastSessionRepositoryImpl()
     private let signaling = SignalingClient()
+    private let relayClient = RelayLinkClient()
 
     private lazy var pairDirect = PairDirectWebReceiverUseCase(
-        coordinator: coordinatorService.server,
+        relayClient: relayClient,
         sessionStore: sessionRepository
     )
 
@@ -44,43 +35,36 @@ final class DirectTestViewModel: ObservableObject {
     )
 
     private var statusTask: Task<Void, Never>?
-    private var healthTask: Task<Void, Never>?
 
     func onAppear() {
-        refreshNetworkInfo()
-        LocalNetworkAuthorization.shared.requestAuthorization()
-        startCoordinator()
-        startHealthPolling()
+        if relayHost.isEmpty {
+            relayHost = UserDefaults.standard.string(forKey: "test.relayHost") ?? ""
+        }
     }
 
     func onDisappear() {
         statusTask?.cancel()
-        healthTask?.cancel()
-        // Keep coordinator running — browser on TV/Mac must reach iPhone while testing.
-    }
-
-    func refreshNetworkInfo() {
-        iphoneIP = LanAddress.currentWiFiIPv4() ?? ""
-        if iphoneIP.isEmpty {
-            localNetworkHint = "No Wi‑Fi IP found. Connect to Wi‑Fi and tap Refresh."
-            coordinatorRunning = false
-        } else {
-            startCoordinator()
-        }
     }
 
     func linkReceiver() {
-        guard canLink else { return }
+        guard canLink, let port = Int(relayPort) else { return }
         connectionState = .connecting
         errorMessage = nil
+        UserDefaults.standard.set(relayHost, forKey: "test.relayHost")
 
-        do {
-            _ = try pairDirect.execute(pairingCode: pairingCode)
-            startStatusPolling()
-        } catch {
-            errorMessage = error.localizedDescription
-            showError = true
-            connectionState = .idle
+        Task {
+            do {
+                let session = try await pairDirect.execute(
+                    relayHost: relayHost,
+                    relayPort: port
+                )
+                detectedCode = session.pairingCode
+                startStatusPolling()
+            } catch {
+                errorMessage = error.localizedDescription
+                showError = true
+                connectionState = .idle
+            }
         }
     }
 
@@ -91,56 +75,21 @@ final class DirectTestViewModel: ObservableObject {
 
     func resetSession() {
         statusTask?.cancel()
-        coordinatorService.server.clearLink(code: pairingCode)
+        if let snapshot = SessionStore.load() {
+            let signaling = SignalingClient()
+            signaling.bind(snapshot: snapshot)
+            Task {
+                try? await signaling.updateSessionStatus(sessionId: snapshot.sessionId, state: "ended")
+            }
+        }
         SessionStore.clear()
         connectionState = .idle
-        pairingCode = ""
-    }
-
-    func stopTestServer() {
-        resetSession()
-        healthTask?.cancel()
-        coordinatorService.stop()
-        coordinatorRunning = false
-        localHealthOK = false
+        detectedCode = nil
     }
 
     func dismissError() {
         showError = false
         errorMessage = nil
-    }
-
-    private func startCoordinator() {
-        guard LanAddress.isValidIPv4(iphoneIP) else {
-            coordinatorRunning = false
-            localNetworkHint = "Connect to Wi‑Fi, allow Local Network when prompted, then tap Refresh."
-            return
-        }
-        do {
-            try coordinatorService.ensureStarted(advertisedIP: iphoneIP)
-            coordinatorRunning = true
-            localNetworkHint = "Keep this app in the foreground on the Test tab while pairing."
-        } catch {
-            coordinatorRunning = false
-            errorMessage = "Could not start pairing server on port \(TestReceiverConfig.coordinatorPort): \(error.localizedDescription)"
-            showError = true
-        }
-    }
-
-    private func startHealthPolling() {
-        healthTask?.cancel()
-        healthTask = Task {
-            while !Task.isCancelled {
-                if LanAddress.isValidIPv4(iphoneIP) {
-                    let ok = await CoordinatorHealthCheck.check(host: iphoneIP)
-                    localHealthOK = ok
-                    if !ok && coordinatorRunning {
-                        localNetworkHint = "Other devices cannot reach this iPhone yet. Allow Local Network in Settings → AndroidRemote, disable VPN, and ensure router client isolation is off."
-                    }
-                }
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-            }
-        }
     }
 
     private func startStatusPolling() {

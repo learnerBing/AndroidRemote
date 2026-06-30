@@ -51,6 +51,7 @@ enum CastError: LocalizedError {
     case answerTimeout
     case invalidPairingCode
     case discoveryFailed
+    case relayBrowserNotOpen
     case notConfigured
     case webRtcUnavailable
     case castSdkUnavailable
@@ -61,8 +62,9 @@ enum CastError: LocalizedError {
         switch self {
         case .answerTimeout: return "TV did not respond in time"
         case .invalidPairingCode: return "Invalid pairing code"
-        case .discoveryFailed: return "Could not find Cast devices on network"
-        case .notConfigured: return "Session not configured"
+        case .discoveryFailed: return "Could not reach Mac relay — same Wi‑Fi, IP 192.168.18.6, port 8080, allow Local Network"
+        case .relayBrowserNotOpen: return "Open test-receiver.html in your Mac browser first, then tap Link Receiver"
+        case .notConfigured: return "Session not configured — Link Receiver on Test tab before broadcast"
         case .webRtcUnavailable: return "WebRTC SDK not linked — add GoogleWebRTC via SPM"
         case .castSdkUnavailable: return "Google Cast SDK not linked — resolve SPM packages in Xcode"
         case .castSessionFailed: return "Could not start Cast session"

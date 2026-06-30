@@ -46,32 +46,19 @@
       border-radius: 999px;
       margin-bottom: 1rem;
     }
-    label { display: block; text-align: left; font-size: 0.85rem; color: #8b949e; margin-top: 1rem; }
-    input {
-      width: 100%;
-      margin-top: 0.35rem;
-      padding: 0.65rem 0.75rem;
-      border-radius: 8px;
-      border: 1px solid #30363d;
-      background: #161b22;
-      color: #e6edf3;
-      font-size: 1rem;
-    }
     .hint { font-size: 0.8rem; color: #6e7681; margin-top: 1rem; line-height: 1.4; }
   </style>
 </head>
 <body>
   <div id="waiting">
-    <span class="badge">Direct LAN test — no Chromecast</span>
+    <span class="badge">Mac relay test — no Chromecast</span>
     <h1>AndroidRemote</h1>
-    <p>Enter this code in the iPhone app → <strong>Test</strong> tab</p>
+    <p>Enter this code in iPhone → <strong>Test</strong> tab</p>
     <div id="code">------</div>
-    <label for="iphone-ip">iPhone LAN IP (must match Test tab)</label>
-    <input id="iphone-ip" type="text" placeholder="192.168.1.42" autocomplete="off" />
     <p id="status">Waiting for iPhone to link…</p>
-    <p class="hint">
-      Open this page on your TV browser, Google TV, or a laptop on the same Wi‑Fi.
-      iPhone and receiver must be on the same network.
+    <p class="hint" id="relay-hint">
+      Relay: <code id="relay-url">…</code><br />
+      Do not add <code>?iphone=</code> — that old URL hits the iPhone and fails.
     </p>
   </div>
   <div id="video-container">
@@ -80,24 +67,34 @@
 
   <script>
     const STUN = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-    const COORD_PORT = 8767;
-    const DEFAULT_SIGNALING_PORT = 8766;
 
     let sessionId = null;
-    let signalingHost = null;
-    let signalingPort = DEFAULT_SIGNALING_PORT;
     let peerConnection = null;
     let icePollTimer = null;
     let linkPollTimer = null;
     let webRtcStarted = false;
+    const seenSenderIce = new Set();
+    let statusPollTimer = null;
+    let isTeardown = false;
 
     const pairingCode = generatePairingCode();
     document.getElementById('code').textContent = pairingCode;
 
-    const params = new URLSearchParams(location.search);
-    const iphoneInput = document.getElementById('iphone-ip');
-    if (params.get('iphone')) {
-      iphoneInput.value = params.get('iphone');
+    if (new URLSearchParams(location.search).has('iphone')) {
+      setStatus('Remove ?iphone= from URL — use Mac relay only (see hint below)');
+    }
+    document.getElementById('relay-url').textContent =
+      `${location.origin}${location.pathname}`;
+
+    postJson(relayUrl('/test/register'), { code: pairingCode }).catch(console.warn);
+
+    function relayBase() {
+      const port = location.port || (location.protocol === 'https:' ? '443' : '80');
+      return `${location.protocol}//${location.hostname}:${port}`;
+    }
+
+    function relayUrl(path) {
+      return `${relayBase()}${path}`;
     }
 
     function generatePairingCode() {
@@ -110,14 +107,6 @@
 
     function sleep(ms) {
       return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-
-    function coordinatorUrl(path) {
-      return `http://${iphoneInput.value.trim()}:${COORD_PORT}${path}`;
-    }
-
-    function signalingUrl(path) {
-      return `http://${signalingHost}:${signalingPort}${path}`;
     }
 
     async function getJson(url) {
@@ -140,28 +129,63 @@
       document.getElementById('video-container').style.display = 'block';
     }
 
+    function teardownWebRtc(reason) {
+      if (isTeardown) return;
+      isTeardown = true;
+      if (icePollTimer) {
+        clearInterval(icePollTimer);
+        icePollTimer = null;
+      }
+      if (statusPollTimer) {
+        clearInterval(statusPollTimer);
+        statusPollTimer = null;
+      }
+      seenSenderIce.clear();
+      if (peerConnection) {
+        peerConnection.ontrack = null;
+        peerConnection.onicecandidate = null;
+        peerConnection.onconnectionstatechange = null;
+        peerConnection.oniceconnectionstatechange = null;
+        peerConnection.close();
+        peerConnection = null;
+      }
+      const video = document.getElementById('remote-video');
+      video.srcObject = null;
+      document.getElementById('video-container').style.display = 'none';
+      document.getElementById('waiting').style.display = 'block';
+      webRtcStarted = false;
+      setStatus(reason || 'Broadcast ended');
+    }
+
+    function startStatusPolling() {
+      if (statusPollTimer) clearInterval(statusPollTimer);
+      statusPollTimer = setInterval(async () => {
+        if (!sessionId || isTeardown) return;
+        const status = await getJson(
+          relayUrl(`/status?sessionId=${encodeURIComponent(sessionId)}`)
+        );
+        if (status && (status.state === 'ended' || status.state === 'disconnected')) {
+          teardownWebRtc('Broadcast stopped');
+        }
+      }, 800);
+    }
+
     function startLinkPolling() {
       if (linkPollTimer) clearInterval(linkPollTimer);
       linkPollTimer = setInterval(async () => {
-        if (!iphoneInput.value.trim()) return;
         try {
           const link = await getJson(
-            coordinatorUrl(`/test/link?code=${encodeURIComponent(pairingCode)}`)
+            relayUrl(`/test/link?code=${encodeURIComponent(pairingCode)}`)
           );
-          if (link && link.sessionId && link.signalingHost) {
+          if (link && link.sessionId) {
             clearInterval(linkPollTimer);
             sessionId = link.sessionId;
-            signalingHost = link.signalingHost;
-            signalingPort = link.signalingPort || DEFAULT_SIGNALING_PORT;
-            setStatus('Linked — start screen broadcast on iPhone');
+            isTeardown = false;
+            setStatus(`Linked (${sessionId.slice(0, 8)}…) — start screen broadcast on iPhone`);
             watchForWebRtc();
           }
         } catch (e) {
-          if (e instanceof TypeError && String(e).includes('Failed to fetch')) {
-            setStatus(`Cannot reach iPhone at ${iphoneInput.value.trim()}:${COORD_PORT} — allow Local Network on iPhone, same Wi‑Fi, app open on Test tab`);
-          } else {
-            setStatus('Cannot reach iPhone — check IP, Wi‑Fi, Local Network permission');
-          }
+          setStatus('Cannot reach Mac relay — is lan-test-server.py running?');
         }
       }, 800);
     }
@@ -169,28 +193,39 @@
     async function waitForOffer() {
       for (let i = 0; i < 180; i++) {
         const offerMsg = await getJson(
-          signalingUrl(`/sdp/offer?sessionId=${encodeURIComponent(sessionId)}`)
+          relayUrl(`/sdp/offer?sessionId=${encodeURIComponent(sessionId)}`)
         );
         if (offerMsg && offerMsg.type === 'offer' && offerMsg.sdp) return offerMsg.sdp;
+        if (i % 4 === 0) {
+          setStatus(`Waiting for iPhone broadcast… (${sessionId.slice(0, 8)}…)`);
+        }
         await sleep(500);
       }
-      throw new Error('Offer timeout — start screen broadcast on iPhone');
+      throw new Error('No offer — Link Receiver on iPhone, then start screen broadcast');
     }
 
     function startIcePolling() {
       if (icePollTimer) clearInterval(icePollTimer);
       icePollTimer = setInterval(async () => {
         try {
+          if (!peerConnection) return;
           const list = await getJson(
-            signalingUrl(`/ice?sessionId=${encodeURIComponent(sessionId)}&side=sender`)
+            relayUrl(`/ice?sessionId=${encodeURIComponent(sessionId)}&side=sender`)
           );
           if (!list || !list.candidates) return;
           for (const c of list.candidates) {
-            await peerConnection.addIceCandidate({
-              candidate: c.candidate,
-              sdpMid: c.sdpMid,
-              sdpMLineIndex: c.sdpMLineIndex,
-            });
+            if (!c.candidate || seenSenderIce.has(c.candidate)) continue;
+            seenSenderIce.add(c.candidate);
+            try {
+              await peerConnection.addIceCandidate({
+                candidate: c.candidate,
+                sdpMid: c.sdpMid,
+                sdpMLineIndex: c.sdpMLineIndex,
+              });
+              console.log('added sender ICE', c.candidate.slice(0, 48));
+            } catch (e) {
+              console.warn('addIceCandidate', e);
+            }
           }
         } catch (e) {
           console.warn('ICE poll error', e);
@@ -198,20 +233,69 @@
       }, 300);
     }
 
+    function attachRemoteTrack(event) {
+      const video = document.getElementById('remote-video');
+      const track = event.track;
+      if (event.streams && event.streams[0]) {
+        video.srcObject = event.streams[0];
+      } else if (track) {
+        video.srcObject = new MediaStream([track]);
+      }
+      if (track) {
+        track.enabled = true;
+        track.onunmute = () => {
+          console.log('video track unmuted');
+          setStatus('Video playing');
+        };
+        track.onmute = () => console.warn('video track muted');
+        track.onended = () => teardownWebRtc('Stream ended');
+      }
+      video.muted = true;
+      video.playsInline = true;
+      video.play().catch(console.warn);
+      showVideo();
+    }
+
     async function startWebRtc() {
-      if (!sessionId || !signalingHost) return;
+      if (!sessionId) return;
       setStatus('Waiting for iPhone screen broadcast…');
       const offerSdp = await waitForOffer();
 
-      peerConnection = new RTCPeerConnection(STUN);
+      peerConnection = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+        iceTransportPolicy: 'all',
+        bundlePolicy: 'max-bundle',
+      });
+      peerConnection.addTransceiver('video', { direction: 'recvonly' });
+
       peerConnection.ontrack = (event) => {
-        document.getElementById('remote-video').srcObject = event.streams[0];
-        showVideo();
+        console.log('ontrack', event.track?.kind, event.track?.readyState);
+        attachRemoteTrack(event);
+        setStatus('Receiving video…');
+      };
+      peerConnection.onconnectionstatechange = () => {
+        if (!peerConnection || isTeardown) return;
+        const ice = peerConnection.iceConnectionState;
+        const conn = peerConnection.connectionState;
+        setStatus(`WebRTC conn=${conn} ice=${ice}`);
+        if (conn === 'failed' || ice === 'failed') {
+          teardownWebRtc(`WebRTC failed (ice=${ice})`);
+        } else if (conn === 'closed' || conn === 'disconnected') {
+          teardownWebRtc('Connection closed');
+        }
+      };
+      peerConnection.oniceconnectionstatechange = () => {
+        if (!peerConnection || isTeardown) return;
+        const ice = peerConnection.iceConnectionState;
+        console.log('iceConnectionState', ice);
+        if (ice === 'disconnected' || ice === 'closed' || ice === 'failed') {
+          teardownWebRtc('Broadcast ended');
+        }
       };
 
       peerConnection.onicecandidate = (event) => {
         if (!event.candidate) return;
-        postJson(signalingUrl('/ice?side=receiver'), {
+        postJson(relayUrl('/ice?side=receiver'), {
           sessionId,
           candidate: event.candidate.candidate,
           sdpMid: event.candidate.sdpMid,
@@ -223,18 +307,19 @@
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
 
-      await postJson(signalingUrl('/sdp'), {
+      await postJson(relayUrl('/sdp'), {
         sessionId,
         type: 'answer',
         sdp: answer.sdp,
       });
 
       startIcePolling();
+      startStatusPolling();
     }
 
     function watchForWebRtc() {
       const timer = setInterval(() => {
-        if (sessionId && signalingHost && !webRtcStarted) {
+        if (sessionId && !webRtcStarted) {
           webRtcStarted = true;
           clearInterval(timer);
           startWebRtc().catch((e) => {
@@ -247,13 +332,7 @@
       }, 1000);
     }
 
-    iphoneInput.addEventListener('change', startLinkPolling);
-    iphoneInput.addEventListener('blur', startLinkPolling);
-    if (iphoneInput.value.trim()) {
-      startLinkPolling();
-    } else {
-      setStatus('Enter iPhone IP from Test tab, then link on iPhone');
-    }
+    startLinkPolling();
   </script>
 </body>
 </html>

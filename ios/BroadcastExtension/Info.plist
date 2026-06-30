@@ -34,5 +34,7 @@
 		<key>RPBroadcastProcessMode</key>
 		<string>RPBroadcastProcessModeSampleBuffer</string>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Connect to the Mac relay on your Wi‑Fi network for WebRTC screen mirroring.</string>
 </dict>
 </plist>

@@ -161,7 +161,12 @@
       peerConnection = new RTCPeerConnection(STUN);
       peerConnection.ontrack = (event) => {
         const video = document.getElementById('remote-video');
-        video.srcObject = event.streams[0];
+        if (event.streams && event.streams[0]) {
+          video.srcObject = event.streams[0];
+        } else if (event.track) {
+          video.srcObject = new MediaStream([event.track]);
+        }
+        video.play().catch(console.warn);
         showVideo();
         setStatus('Connected');
         sendCastMessage({ type: 'status', state: 'connected' });

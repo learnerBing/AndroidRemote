@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// LAN test path — connect to `test-receiver.html` without Chromecast registration.
+/// LAN test — Mac relay server + browser receiver (no Chromecast, no inbound iPhone TCP).
 struct DirectTestView: View {
     @StateObject private var viewModel = DirectTestViewModel()
-    @FocusState private var codeFieldFocused: Bool
 
     var body: some View {
         ZStack {
@@ -32,64 +31,62 @@ struct DirectTestView: View {
             VStack(alignment: .leading, spacing: 20) {
                 header
 
-                stepCard(number: 1, title: "Open receiver on TV or laptop") {
-                    Text("On your Mac, serve locally (use your Mac IP — not 0.0.0.0):")
+                stepCard(number: 1, title: "Start Mac relay server") {
+                    Text("On your Mac (same Wi‑Fi):")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.textSecondary)
 
-                    Text("python3 -m http.server 8080 --bind 0.0.0.0")
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .textSelection(.enabled)
-
-                    Text("Optional local receiver base URL (Mac IP):")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .padding(.top, 4)
-
-                    TextField("http://192.168.x.x:8080/test-receiver.html", text: $viewModel.localReceiverBaseURL)
-                        .font(.system(.caption, design: .monospaced))
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .padding(10)
-                        .background(AppTheme.background)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                    Text("Open this URL in a browser on the same Wi‑Fi:")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .padding(.top, 4)
-
-                    Text(viewModel.receiverURLWithIP)
+                    Text("python3 tools/lan-test-server.py")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(AppTheme.primary)
                         .textSelection(.enabled)
-                        .padding(12)
+                        .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(AppTheme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
-                }
+                        .background(AppTheme.background)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                stepCard(number: 2, title: "Copy code from receiver page") {
-                    Text("The web page shows a 6-digit code. Enter it here:")
-                        .font(.subheadline)
+                    Text("Note the Mac IP printed by the script (not 0.0.0.0).")
+                        .font(.caption)
                         .foregroundStyle(AppTheme.textSecondary)
-
-                    TextField("000000", text: $viewModel.pairingCode)
-                        .keyboardType(.numberPad)
-                        .multilineTextAlignment(.center)
-                        .font(.system(size: 32, weight: .semibold, design: .monospaced))
-                        .padding(.vertical, 16)
-                        .background(AppTheme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
-                        .focused($codeFieldFocused)
-                        .onChange(of: viewModel.pairingCode) { _, newValue in
-                            let filtered = String(newValue.filter(\.isNumber).prefix(6))
-                            if filtered != newValue { viewModel.pairingCode = filtered }
-                        }
+                        .padding(.top, 4)
                 }
 
-                networkInfo
+                stepCard(number: 2, title: "Open receiver in browser FIRST") {
+                    Text("Must be open before Link Receiver on iPhone:")
+                        .font(.subheadline)
+                        .foregroundStyle(.orange)
+
+                    Text(viewModel.receiverPageURL)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(AppTheme.primary)
+                        .textSelection(.enabled)
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(AppTheme.background)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                stepCard(number: 3, title: "Mac relay host (from script output)") {
+                    TextField("192.168.x.x", text: $viewModel.relayHost)
+                        .keyboardType(.decimalPad)
+                        .font(.system(.body, design: .monospaced))
+                        .padding(12)
+                        .background(AppTheme.background)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    TextField("Port", text: $viewModel.relayPort)
+                        .keyboardType(.numberPad)
+                        .font(.system(.body, design: .monospaced))
+                        .padding(12)
+                        .background(AppTheme.background)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                if let code = viewModel.detectedCode {
+                    Text("Linked to browser code: \(code)")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(AppTheme.success)
+                }
 
                 Button(action: viewModel.linkReceiver) {
                     Text("Link Receiver")
@@ -102,17 +99,10 @@ struct DirectTestView: View {
                 .disabled(!viewModel.canLink)
                 .opacity(viewModel.canLink ? 1 : 0.5)
 
-                Text("No Chromecast required. Link Receiver before starting broadcast.")
+                Text("No pairing code needed — auto-detects open browser page.")
                     .font(.caption)
                     .foregroundStyle(AppTheme.textSecondary)
                     .frame(maxWidth: .infinity)
-
-                if let hint = viewModel.localNetworkHint {
-                    Text(hint)
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .frame(maxWidth: .infinity)
-                }
             }
             .padding(20)
         }
@@ -121,30 +111,24 @@ struct DirectTestView: View {
     private var connectingView: some View {
         VStack(spacing: 24) {
             Spacer()
-
-            ProgressView()
-                .tint(AppTheme.primary)
-                .scaleEffect(1.2)
-
+            ProgressView().tint(AppTheme.primary).scaleEffect(1.2)
             Text("Receiver linked")
                 .font(.title3.bold())
                 .foregroundStyle(AppTheme.textPrimary)
-
             Text("Start screen broadcast to begin mirroring")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.textSecondary)
                 .multilineTextAlignment(.center)
-
-            Text("You must tap Link Receiver first, then broadcast.")
+            Text("The browser shows 204 until you start broadcast — that is normal.")
                 .font(.caption)
                 .foregroundStyle(.orange)
                 .multilineTextAlignment(.center)
-
+            Text("Link Receiver must succeed before broadcast.")
+                .font(.caption)
+                .foregroundStyle(.orange)
             BroadcastPickerRepresentable()
                 .frame(width: 52, height: 52)
-
             Spacer()
-
             Button("Cancel") { viewModel.cancelConnecting() }
                 .foregroundStyle(AppTheme.primary)
                 .padding(.bottom, 32)
@@ -155,23 +139,16 @@ struct DirectTestView: View {
     private var streamingView: some View {
         VStack(spacing: 32) {
             Spacer()
-
             HStack(spacing: 8) {
                 Circle().fill(AppTheme.success).frame(width: 8, height: 8)
                 Text("Live (test mode)")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.success)
             }
-
             Text("Mirroring to web receiver")
                 .font(.title3.bold())
-                .foregroundStyle(AppTheme.textPrimary)
-
-            BroadcastPickerRepresentable()
-                .frame(width: 52, height: 52)
-
+            BroadcastPickerRepresentable().frame(width: 52, height: 52)
             Spacer()
-
             Button("Stop") { viewModel.resetSession() }
                 .foregroundStyle(AppTheme.textSecondary)
                 .padding(.bottom, 32)
@@ -183,60 +160,10 @@ struct DirectTestView: View {
             Label("Direct LAN Test", systemImage: "antenna.radiowaves.left.and.right")
                 .font(.title2.bold())
                 .foregroundStyle(AppTheme.textPrimary)
-
-            Text("Bypass Chromecast — pair with the browser receiver over Wi‑Fi.")
+            Text("Mac relay handles signaling. No Chromecast or iPhone inbound ports.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.textSecondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var networkInfo: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("iPhone IP")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.textPrimary)
-                Spacer()
-                Button("Refresh") { viewModel.refreshNetworkInfo() }
-                    .font(.caption.weight(.medium))
-            }
-
-            Text(viewModel.iphoneIP)
-                .font(.system(.body, design: .monospaced))
-                .foregroundStyle(AppTheme.primary)
-                .textSelection(.enabled)
-
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(viewModel.coordinatorRunning ? AppTheme.success : .orange)
-                    .frame(width: 8, height: 8)
-                Text(viewModel.coordinatorRunning
-                     ? "Pairing server on port \(TestReceiverConfig.coordinatorPort)"
-                     : "Pairing server not running")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.textSecondary)
-            }
-
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(viewModel.localHealthOK ? AppTheme.success : .orange)
-                    .frame(width: 8, height: 8)
-                Text(viewModel.localHealthOK
-                     ? "LAN server reachable at this IP"
-                     : "LAN server not reachable — check Local Network permission")
-                    .font(.caption)
-                    .foregroundStyle(AppTheme.textSecondary)
-            }
-
-            Button("Stop test server") { viewModel.stopTestServer() }
-                .font(.caption)
-                .foregroundStyle(AppTheme.textSecondary)
-                .padding(.top, 4)
-        }
-        .padding(16)
-        .background(AppTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
     }
 
     private func stepCard<Content: View>(number: Int, title: String, @ViewBuilder content: () -> Content) -> some View {

@@ -94,6 +94,7 @@ targets:
       path: BroadcastExtension/Info.plist
       properties:
         CFBundleDisplayName: AndroidRemote Broadcast
+        NSLocalNetworkUsageDescription: "Connect to the Mac relay on your Wi‑Fi network for WebRTC screen mirroring."
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         NSExtension:

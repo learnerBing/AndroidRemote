@@ -98,39 +98,3 @@ struct ClearCastSessionUseCase {
         sessionStore.clearSession()
     }
 }
-
-/// Direct LAN test: link web receiver via HTTP coordinator (no Chromecast).
-struct PairDirectWebReceiverUseCase {
-    let coordinator: TestCoordinatorServer
-    let sessionStore: ScreenCastSessionRepository
-
-    func execute(pairingCode: String) throws -> PairingSession {
-        guard pairingCode.count == 6, pairingCode.allSatisfy(\.isNumber) else {
-            throw CastError.invalidPairingCode
-        }
-        guard let host = LanAddress.currentWiFiIPv4() else {
-            throw CastError.lanAddressUnavailable
-        }
-
-        let sessionId = UUID().uuidString
-        coordinator.registerLink(
-            code: pairingCode,
-            sessionId: sessionId,
-            signalingHost: host,
-            signalingPort: CastConfig.signalingPort
-        )
-
-        let device = CastDevice(
-            id: "web-receiver-test",
-            name: "Web Receiver (Test)",
-            kind: .chromecast
-        )
-        sessionStore.saveCastSession(sessionId: sessionId, device: device, signalingHost: host)
-
-        return PairingSession(
-            sessionId: sessionId,
-            pairingCode: pairingCode,
-            expiresAt: Date().addingTimeInterval(300)
-        )
-    }
-}

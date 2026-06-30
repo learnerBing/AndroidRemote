@@ -6,18 +6,67 @@ Runs as a [Google Cast custom web receiver](https://developers.google.com/cast/d
 
 ## Direct LAN test (no Chromecast)
 
-Use **`test-receiver.html`** when Cast device registration is not ready:
+Use the **Mac relay** when Cast device registration is not ready. iPhone cannot reliably accept inbound LAN TCP, so signaling runs on your Mac — not on the iPhone.
+
+### 1. Start relay on Mac (same Wi‑Fi)
+
+```bash
+python3 tools/lan-test-server.py
+```
+
+The script prints your Mac IP, e.g. `192.168.18.5`.
+
+### 2. Open receiver in browser
+
+Use the **Mac IP** from step 1 (not `0.0.0.0`, not the iPhone IP):
 
 ```
-https://learnerbing.github.io/AndroidRemote/test-receiver.html?iphone=YOUR_IPHONE_IP
+http://192.168.18.5:8080/test-receiver.html
 ```
 
-1. iPhone app → **Test** tab → copy receiver URL
-2. Open URL in TV browser (or laptop on same Wi‑Fi)
-3. Enter 6-digit code from web page → **Link Receiver**
-4. Start screen broadcast on iPhone
+### 3. Link from iPhone
 
-Pairing uses HTTP on iPhone port **8767**; WebRTC signaling on **8766** when broadcast starts.
+1. iPhone app → **Test** tab
+2. **Relay host** = Mac IP, **Port** = `8080`
+3. Enter the 6-digit code shown in the browser → **Link Receiver**
+4. **Then** start screen broadcast (Link must succeed first)
+
+WebRTC video is peer-to-peer; the Mac only relays SDP/ICE.
+
+### macOS Firewall (required for LAN IP)
+
+`http://127.0.0.1:8080/...` works on the Mac, but `http://192.168.x.x:8080/...` shows **ERR_EMPTY_RESPONSE** until Python is allowed through the firewall.
+
+**One-time fix** — run in Terminal (replace path if your script prints a different one):
+
+```bash
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add "/opt/homebrew/Cellar/python@3.14/3.14.4/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python"
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp "/opt/homebrew/Cellar/python@3.14/3.14.4/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python"
+```
+
+Or use the helper script (prints the exact path on your Mac):
+
+```bash
+./tools/start-lan-test-server.sh
+```
+
+**GUI:** System Settings → Network → Firewall → Options… → **Python** → Allow incoming connections.
+
+Verify from another device (or after fix):
+
+```bash
+curl http://YOUR_MAC_IP:8080/health
+# → {"ok": true}
+```
+
+| Where you open the browser | URL to use |
+|----------------------------|------------|
+| On the Mac itself | `http://127.0.0.1:8080/test-receiver.html` |
+| On TV / another device | `http://MAC_LAN_IP:8080/test-receiver.html` (needs firewall fix) |
+
+Use the plain URL — **no `?iphone=`** query param.
+
+> **Note:** GitHub Pages hosts static files only — it cannot run the relay. For test mode, always use `lan-test-server.py` on Mac.
 
 ---
 

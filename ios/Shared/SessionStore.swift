@@ -29,6 +29,56 @@ enum SessionStore {
         var tvName: String { deviceName }
     }
 
+    private static let snapshotFileName = "active-session.json"
+
+    private static func appGroupContainerURL() -> URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId)
+    }
+
+    private static func writeSnapshotFile(_ snapshot: Snapshot) {
+        guard let url = appGroupContainerURL()?.appendingPathComponent(snapshotFileName) else { return }
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    private static func readSnapshotFile() -> Snapshot? {
+        guard let url = appGroupContainerURL()?.appendingPathComponent(snapshotFileName),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(Snapshot.self, from: data)
+    }
+
+    private static func removeSnapshotFile() {
+        guard let url = appGroupContainerURL()?.appendingPathComponent(snapshotFileName) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    private static func persist(_ snapshot: Snapshot) {
+        writeSnapshotFile(snapshot)
+    }
+
+    static func saveDirectTestSession(
+        sessionId: String,
+        device: CastDevice,
+        relayHost: String,
+        relayPort: Int
+    ) {
+        guard let defaults else { return }
+        defaults.set(sessionId, forKey: Key.sessionId)
+        defaults.set(relayHost, forKey: Key.signalingHost)
+        defaults.set(relayPort, forKey: Key.signalingPort)
+        defaults.set(device.name, forKey: Key.deviceName)
+        defaults.set(SignalingTransport.directLanRelay.rawValue, forKey: Key.transport)
+        defaults.set(true, forKey: Key.isPaired)
+        defaults.synchronize()
+        persist(Snapshot(
+            sessionId: sessionId,
+            transport: .directLanRelay,
+            signalingHost: relayHost,
+            signalingPort: relayPort,
+            deviceName: device.name
+        ))
+    }
+
     static func saveCastSession(
         sessionId: String,
         device: CastDevice,
@@ -55,6 +105,7 @@ enum SessionStore {
     }
 
     static func load() -> Snapshot? {
+        if let fromFile = readSnapshotFile() { return fromFile }
         guard let defaults,
               defaults.bool(forKey: Key.isPaired),
               let sessionId = defaults.string(forKey: Key.sessionId),
@@ -83,5 +134,7 @@ enum SessionStore {
         defaults.removeObject(forKey: Key.deviceName)
         defaults.removeObject(forKey: Key.transport)
         defaults.set(false, forKey: Key.isPaired)
+        defaults.synchronize()
+        removeSnapshotFile()
     }
 }

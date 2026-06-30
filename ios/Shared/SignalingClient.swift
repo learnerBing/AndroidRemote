@@ -47,7 +47,19 @@ final class SignalingClient: @unchecked Sendable {
     // MARK: - SDP
 
     func sendOffer(sessionId: String, sdp: String) async throws {
-        try await postSdp(sessionId: sessionId, type: "offer", sdp: sdp)
+        var lastError: Error = CastError.notConfigured
+        for attempt in 0..<8 {
+            do {
+                try await postSdp(sessionId: sessionId, type: "offer", sdp: sdp)
+                return
+            } catch {
+                lastError = error
+                if attempt < 7 {
+                    try await Task.sleep(nanoseconds: 400_000_000)
+                }
+            }
+        }
+        throw lastError
     }
 
     func pollAnswer(sessionId: String, maxAttempts: Int = 40) async throws -> String {
@@ -82,16 +94,19 @@ final class SignalingClient: @unchecked Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let body = ARCPSdpMessage(sessionId: sessionId, type: type, sdp: sdp)
         request.httpBody = try JSONEncoder().encode(body)
+        request.timeoutInterval = 15
         let (_, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            throw CastError.notConfigured
+            throw CastError.discoveryFailed
         }
     }
 
     // MARK: - ICE
 
-    func sendIceCandidate(sessionId: String, candidate: IceCandidate) async throws {
-        let url = try endpoint("ice")
+    func sendIceCandidate(sessionId: String, candidate: IceCandidate, side: String = "sender") async throws {
+        var components = URLComponents(url: try endpoint("ice"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "side", value: side)]
+        guard let url = components.url else { throw CastError.notConfigured }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -105,9 +120,13 @@ final class SignalingClient: @unchecked Sendable {
         _ = try await session.data(for: request)
     }
 
-    func pollRemoteIceCandidates(sessionId: String) async throws -> [IceCandidate] {
+    func pollRemoteIceCandidates(sessionId: String, side: String = "receiver") async throws -> [IceCandidate] {
         var components = URLComponents(url: try endpoint("ice"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "sessionId", value: sessionId)]
+        components.queryItems = [
+            URLQueryItem(name: "sessionId", value: sessionId),
+            URLQueryItem(name: "side", value: side),
+            URLQueryItem(name: "drain", value: "1"),
+        ]
         guard let url = components.url else { return [] }
 
         var request = URLRequest(url: url)
@@ -133,6 +152,23 @@ final class SignalingClient: @unchecked Sendable {
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return "waiting" }
         let status = try JSONDecoder().decode(ARCPStatusResponse.self, from: data)
         return status.state
+    }
+
+    func updateSessionStatus(sessionId: String, state: String) async throws {
+        let url = try endpoint("status")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 5
+        struct Body: Encodable {
+            let sessionId: String
+            let state: String
+        }
+        request.httpBody = try JSONEncoder().encode(Body(sessionId: sessionId, state: state))
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw CastError.discoveryFailed
+        }
     }
 
     // MARK: - Private

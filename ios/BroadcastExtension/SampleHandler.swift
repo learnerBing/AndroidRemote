@@ -12,20 +12,33 @@ class SampleHandler: RPBroadcastSampleHandler {
             finishBroadcastWithError(NSError(
                 domain: "AndroidRemote",
                 code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "No linked session. In the app Test tab, enter the receiver code and tap Link Receiver before starting broadcast."]
+                userInfo: [NSLocalizedDescriptionKey: "No linked session. Tap Link Receiver in the Test tab, then start broadcast."]
             ))
             return
         }
 
         Task {
             do {
-                try await webRtcEngine.start(session: snapshot)
-                isStreaming = true
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    group.addTask { [weak self] in
+                        guard let self else { return }
+                        self.webRtcEngine.onCaptureReady = { [weak self] in
+                            self?.isStreaming = true
+                        }
+                        try await self.webRtcEngine.start(session: snapshot)
+                    }
+                    group.addTask {
+                        try await Task.sleep(nanoseconds: 60_000_000_000)
+                        throw CastError.answerTimeout
+                    }
+                    try await group.next()
+                    group.cancelAll()
+                }
             } catch let error as CastError {
                 finishBroadcastWithError(NSError(
                     domain: "AndroidRemote",
                     code: 2,
-                    userInfo: [NSLocalizedDescriptionKey: error.localizedDescription]
+                    userInfo: [NSLocalizedDescriptionKey: "\(error.localizedDescription) (relay \(snapshot.signalingHost):\(snapshot.signalingPort))"]
                 ))
             } catch {
                 finishBroadcastWithError(NSError(
