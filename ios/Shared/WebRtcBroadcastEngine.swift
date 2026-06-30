@@ -20,10 +20,12 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
     private var activeSessionId: String?
 
 #if canImport(WebRTC)
+    private let audioDevice = ReplayKitAudioDevice.shared
     private var factory: RTCPeerConnectionFactory?
     private var peerConnection: RTCPeerConnection?
     private var videoSource: RTCVideoSource?
     private var videoCapturer: RTCVideoCapturer?
+    private var audioTrack: RTCAudioTrack?
     private var localIceCandidates: [IceCandidate] = []
     private var icePollTask: Task<Void, Never>?
     private var iceRepublishTask: Task<Void, Never>?
@@ -83,10 +85,12 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
             peerConnection = nil
             videoSource = nil
             videoCapturer = nil
+            audioTrack = nil
             ciContext = nil
             factory = nil
             localIceCandidates.removeAll()
         }
+        audioDevice.terminateDevice()
         if let endingSession {
             Task {
                 try? await signaling.updateSessionStatus(sessionId: endingSession, state: "ended")
@@ -96,6 +100,14 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
     }
 
 #if canImport(WebRTC)
+    func pushAppAudioSample(_ sampleBuffer: CMSampleBuffer) {
+        audioDevice.pushAppSample(sampleBuffer)
+    }
+
+    func pushMicAudioSample(_ sampleBuffer: CMSampleBuffer) {
+        audioDevice.pushMicSample(sampleBuffer)
+    }
+
     func pushVideoSample(_ sampleBuffer: CMSampleBuffer) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
@@ -221,7 +233,11 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
             encoderFactory.preferredCodec = h264
         }
         let decoderFactory = RTCDefaultVideoDecoderFactory()
-        factory = RTCPeerConnectionFactory(encoderFactory: encoderFactory, decoderFactory: decoderFactory)
+        factory = RTCPeerConnectionFactory(
+            encoderFactory: encoderFactory,
+            decoderFactory: decoderFactory,
+            audioDevice: audioDevice
+        )
 
         let config = RTCConfiguration()
         config.iceServers = [RTCIceServer(urlStrings: ["stun:stun.l.google.com:19302"])]
@@ -255,6 +271,17 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
         transceiverInit.sendEncodings = [encoding]
         pc.addTransceiver(with: videoTrack, init: transceiverInit)
         applyVideoSenderParameters()
+
+        let audioTransceiverInit = RTCRtpTransceiverInit()
+        audioTransceiverInit.direction = .sendOnly
+        audioTransceiverInit.streamIds = ["screen-stream"]
+        guard let audioTrack = factory?.audioTrack(withTrackId: "audio0") else {
+            throw CastError.notConfigured
+        }
+        audioTrack.isEnabled = true
+        self.audioTrack = audioTrack
+        pc.addTransceiver(with: audioTrack, init: audioTransceiverInit)
+        ARLog.info("WebRTC", "audio track added (ReplayKit app + mic mix)")
 
         DispatchQueue.main.async { [weak self] in
             self?.onCaptureReady?()

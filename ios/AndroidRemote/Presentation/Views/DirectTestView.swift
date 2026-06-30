@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// LAN test — Mac relay server + browser receiver (no Chromecast, no inbound iPhone TCP).
+/// Screen recording to Mac relay — link browser receiver, then start broadcast.
 struct DirectTestView: View {
     @StateObject private var viewModel = DirectTestViewModel()
 
@@ -141,11 +141,11 @@ struct DirectTestView: View {
             Spacer()
             HStack(spacing: 8) {
                 Circle().fill(AppTheme.success).frame(width: 8, height: 8)
-                Text("Live (test mode)")
+                Text("Live")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppTheme.success)
             }
-            Text("Mirroring to web receiver")
+            Text("Recording to Mac browser")
                 .font(.title3.bold())
             BroadcastPickerRepresentable().frame(width: 52, height: 52)
             Spacer()
@@ -157,10 +157,10 @@ struct DirectTestView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Direct LAN Test", systemImage: "antenna.radiowaves.left.and.right")
+            Label("Screen to Mac", systemImage: "display.and.arrow.down")
                 .font(.title2.bold())
                 .foregroundStyle(AppTheme.textPrimary)
-            Text("Mac relay handles signaling. No Chromecast or iPhone inbound ports.")
+            Text("Record your iPhone screen and audio on a Mac browser over Wi‑Fi.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.textSecondary)
         }

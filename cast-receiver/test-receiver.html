@@ -63,6 +63,7 @@
   </div>
   <div id="video-container">
     <video id="remote-video" autoplay playsinline></video>
+    <audio id="remote-audio" autoplay></audio>
   </div>
 
   <script>
@@ -75,6 +76,8 @@
     let webRtcStarted = false;
     const seenSenderIce = new Set();
     let statusPollTimer = null;
+    let remoteStream = null;
+    let audioStarted = false;
     let isTeardown = false;
 
     const pairingCode = generatePairingCode();
@@ -149,8 +152,12 @@
         peerConnection.close();
         peerConnection = null;
       }
+      remoteStream = null;
+      audioStarted = false;
       const video = document.getElementById('remote-video');
+      const audio = document.getElementById('remote-audio');
       video.srcObject = null;
+      audio.srcObject = null;
       document.getElementById('video-container').style.display = 'none';
       document.getElementById('waiting').style.display = 'block';
       webRtcStarted = false;
@@ -235,26 +242,37 @@
 
     function attachRemoteTrack(event) {
       const video = document.getElementById('remote-video');
+      const audio = document.getElementById('remote-audio');
       const track = event.track;
-      if (event.streams && event.streams[0]) {
-        video.srcObject = event.streams[0];
-      } else if (track) {
-        video.srcObject = new MediaStream([track]);
+      if (!track) return;
+
+      if (!remoteStream) remoteStream = new MediaStream();
+      if (!remoteStream.getTracks().some((t) => t.id === track.id)) {
+        remoteStream.addTrack(track);
       }
-      if (track) {
-        track.enabled = true;
+
+      video.srcObject = remoteStream;
+      audio.srcObject = remoteStream;
+      video.muted = false;
+      audio.muted = false;
+      video.playsInline = true;
+
+      if (track.kind === 'audio' && !audioStarted) {
+        audioStarted = true;
+        audio.play().catch(console.warn);
+        setStatus('Receiving audio…');
+      }
+      if (track.kind === 'video') {
         track.onunmute = () => {
           console.log('video track unmuted');
           setStatus('Video playing');
         };
         track.onmute = () => console.warn('video track muted');
-        track.onended = () => teardownWebRtc('Stream ended');
+        video.play().catch(console.warn);
+        showVideo();
+        watchVideoLayout(video);
       }
-      video.muted = true;
-      video.playsInline = true;
-      video.play().catch(console.warn);
-      showVideo();
-      watchVideoLayout(video);
+      track.onended = () => teardownWebRtc('Stream ended');
     }
 
     function watchVideoLayout(video) {
@@ -286,11 +304,14 @@
         bundlePolicy: 'max-bundle',
       });
       peerConnection.addTransceiver('video', { direction: 'recvonly' });
+      peerConnection.addTransceiver('audio', { direction: 'recvonly' });
 
       peerConnection.ontrack = (event) => {
         console.log('ontrack', event.track?.kind, event.track?.readyState);
         attachRemoteTrack(event);
-        setStatus('Receiving video…');
+        if (event.track?.kind === 'video') {
+          setStatus('Receiving video…');
+        }
       };
       peerConnection.onconnectionstatechange = () => {
         if (!peerConnection || isTeardown) return;

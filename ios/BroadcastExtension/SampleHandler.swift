@@ -88,8 +88,10 @@ class SampleHandler: RPBroadcastSampleHandler {
         switch sampleBufferType {
         case .video:
             webRtcEngine?.pushVideoSample(sampleBuffer)
-        case .audioApp, .audioMic:
-            break // Phase 3: audio pipeline
+        case .audioApp:
+            webRtcEngine?.pushAppAudioSample(sampleBuffer)
+        case .audioMic:
+            webRtcEngine?.pushMicAudioSample(sampleBuffer)
         @unknown default:
             break
         }

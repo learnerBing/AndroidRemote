@@ -29,12 +29,10 @@
 	</dict>
 	<key>NSBonjourServices</key>
 	<array>
-		<string>_androidremote._tcp</string>
 		<string>_androidremote-test._tcp</string>
-		<string>_googlecast._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Allow LAN access so the web receiver and Chromecast can connect to this iPhone for screen mirroring.</string>
+	<string>Allow LAN access so the Mac relay can connect to this iPhone for screen recording.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

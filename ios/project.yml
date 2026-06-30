@@ -75,11 +75,9 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
-        NSLocalNetworkUsageDescription: "Allow LAN access so the web receiver and Chromecast can connect to this iPhone for screen mirroring."
+        NSLocalNetworkUsageDescription: "Allow LAN access so the Mac relay can connect to this iPhone for screen recording."
         NSBonjourServices:
-          - _androidremote._tcp
           - _androidremote-test._tcp
-          - _googlecast._tcp
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
 
