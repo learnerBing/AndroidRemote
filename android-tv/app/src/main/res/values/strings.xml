@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AndroidRemote</string>
+    <string name="notification_ready">Ready to receive iPhone screen</string>
+    <string name="pairing_subtitle">Enter this code on your iPhone</string>
+    <string name="pairing_waiting">Waiting for iPhone to connect</string>
+    <string name="settings_title">Settings</string>
+</resources>

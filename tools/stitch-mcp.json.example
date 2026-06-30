@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "stitch": {
+      "command": "node",
+      "args": ["/Users/personal/Documents/AndoridRemote/tools/stitch-mcp-proxy.mjs"],
+      "env": {
+        "STITCH_API_KEY": "YOUR_API_KEY_HERE"
+      }
+    }
+  }
+}

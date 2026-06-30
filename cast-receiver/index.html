@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AndroidRemote Cast Receiver</title>
+  <script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    #waiting { text-align: center; padding: 2rem; }
+    #waiting h1 { font-size: 2.5rem; margin-bottom: 1rem; color: #58a6ff; }
+    #waiting p { color: #8b949e; font-size: 1.25rem; }
+    #code {
+      font-size: 4rem;
+      font-weight: 700;
+      letter-spacing: 0.5rem;
+      margin: 1.5rem 0;
+      color: #58a6ff;
+    }
+    #video-container {
+      display: none;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    #status { margin-top: 1rem; color: #8b949e; }
+  </style>
+</head>
+<body>
+  <div id="waiting">
+    <h1>AndroidRemote</h1>
+    <p>Enter this code on your iPhone</p>
+    <div id="code">------</div>
+    <p id="status">Waiting for iPhone…</p>
+  </div>
+  <div id="video-container">
+    <video id="remote-video" autoplay playsinline></video>
+  </div>
+
+  <script>
+    const CUSTOM_CHANNEL = 'urn:x-cast:com.androidremote.signaling';
+    const STUN = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+    let sessionId = null;
+    let signalingHost = null;
+    let signalingPort = null;
+    let peerConnection = null;
+    let icePollTimer = null;
+
+    const context = cast.framework.CastReceiverContext.getInstance();
+
+    context.addCustomMessageListener(CUSTOM_CHANNEL, (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleCastMessage(data);
+      } catch (e) {
+        console.error('Invalid cast message', e);
+      }
+    });
+
+    function handleCastMessage(msg) {
+      switch (msg.type) {
+        case 'session_prepare':
+          sessionId = msg.sessionId;
+          signalingHost = msg.signalingHost;
+          signalingPort = msg.signalingPort;
+          setStatus('iPhone ready — start screen broadcast on iPhone');
+          break;
+      }
+    }
+
+    function setStatus(text) {
+      document.getElementById('status').textContent = text;
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function signalingUrl(path) {
+      return `http://${signalingHost}:${signalingPort}${path}`;
+    }
+
+    async function postJson(path, body, query = '') {
+      const res = await fetch(signalingUrl(path + query), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return res;
+    }
+
+    async function getJson(path) {
+      const res = await fetch(signalingUrl(path));
+      if (res.status === 204) return null;
+      if (!res.ok) return null;
+      return res.json();
+    }
+
+    function generatePairingCode() {
+      return String(Math.floor(100000 + Math.random() * 900000));
+    }
+
+    function sendCastMessage(payload) {
+      context.sendCustomMessage(CUSTOM_CHANNEL, payload);
+    }
+
+    function showVideo() {
+      document.getElementById('waiting').style.display = 'none';
+      document.getElementById('video-container').style.display = 'block';
+    }
+
+    async function waitForOffer() {
+      for (let i = 0; i < 120; i++) {
+        const msg = await getJson(`/sdp/offer?sessionId=${encodeURIComponent(sessionId)}`);
+        if (msg && msg.type === 'offer' && msg.sdp) return msg.sdp;
+        await sleep(500);
+      }
+      throw new Error('Offer timeout');
+    }
+
+    async function startIcePolling() {
+      if (icePollTimer) clearInterval(icePollTimer);
+      icePollTimer = setInterval(async () => {
+        try {
+          const list = await getJson(`/ice?sessionId=${encodeURIComponent(sessionId)}&side=sender`);
+          if (!list || !list.candidates) return;
+          for (const c of list.candidates) {
+            await peerConnection.addIceCandidate({
+              candidate: c.candidate,
+              sdpMid: c.sdpMid,
+              sdpMLineIndex: c.sdpMLineIndex,
+            });
+          }
+        } catch (e) {
+          console.warn('ICE poll error', e);
+        }
+      }, 300);
+    }
+
+    async function startWebRtc() {
+      if (!sessionId || !signalingHost || !signalingPort) return;
+
+      setStatus('Waiting for iPhone screen broadcast…');
+      const offerSdp = await waitForOffer();
+
+      peerConnection = new RTCPeerConnection(STUN);
+      peerConnection.ontrack = (event) => {
+        const video = document.getElementById('remote-video');
+        video.srcObject = event.streams[0];
+        showVideo();
+        setStatus('Connected');
+        sendCastMessage({ type: 'status', state: 'connected' });
+      };
+
+      peerConnection.onicecandidate = (event) => {
+        if (!event.candidate) return;
+        postJson('/ice', {
+          sessionId,
+          candidate: event.candidate.candidate,
+          sdpMid: event.candidate.sdpMid,
+          sdpMLineIndex: event.candidate.sdpMLineIndex,
+        }, '?side=receiver').catch(console.error);
+      };
+
+      await peerConnection.setRemoteDescription({ type: 'offer', sdp: offerSdp });
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+
+      await postJson('/sdp', {
+        sessionId,
+        type: 'answer',
+        sdp: answer.sdp,
+      });
+
+      startIcePolling();
+    }
+
+    // Show pairing code and notify iPhone when Cast session connects.
+    const pairingCode = generatePairingCode();
+    document.getElementById('code').textContent = pairingCode;
+
+    context.addEventListener(cast.framework.system.EventType.SENDER_CONNECTED, () => {
+      sendCastMessage({ type: 'pairing_code', code: pairingCode });
+      setStatus('Code sent to iPhone — tap Connect to TV');
+    });
+
+    // Sender may already be connected when listener attaches.
+    if (context.getSenders().length > 0) {
+      sendCastMessage({ type: 'pairing_code', code: pairingCode });
+    }
+
+    context.addEventListener(cast.framework.system.EventType.SENDER_DISCONNECTED, () => {
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+      if (icePollTimer) clearInterval(icePollTimer);
+      location.reload();
+    });
+
+    // Poll for session_prepare then WebRTC (session_prepare arrives via custom message).
+    setInterval(() => {
+      if (sessionId && signalingHost && !peerConnection) {
+        startWebRtc().catch((e) => {
+          console.error(e);
+          setStatus('Connection error — waiting for broadcast…');
+        });
+      }
+    }, 1000);
+
+    context.start({
+      disableIdleTimeout: true,
+      customNamespaces: { [CUSTOM_CHANNEL]: cast.framework.system.MessageType.JSON },
+    });
+  </script>
+</body>
+</html>

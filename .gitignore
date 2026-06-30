@@ -1,0 +1,26 @@
+# Xcode
+ios/**/DerivedData/
+ios/**/*.xcuserstate
+ios/**/xcuserdata/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift PM
+.build/
+.swiftpm/
+
+# Android
+android-tv/.gradle/
+android-tv/**/build/
+android-tv/local.properties
+android-tv/.idea/
+*.apk
+*.aab
+
+# macOS
+.DS_Store
+
+# Env / secrets
+.env
+.env.*

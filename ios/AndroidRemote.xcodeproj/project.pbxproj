@@ -1,0 +1,801 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		05BADE4B90438FC45B967841 /* MirrorCastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B3C74C2D522FDA4D63851D /* MirrorCastView.swift */; };
+		0E2D3D11481EDA3A82388C29 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF2BA9B5B4A0A73D4052BBED /* AVFoundation.framework */; };
+		0FF0FC9A807BB826EA8EC780 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E8FBC4C973537DA2C26643F /* SessionStore.swift */; };
+		1273916E57A8D0EDCB95E595 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 37EDD7E48BE9A9F98075DC7F /* CFNetwork.framework */; };
+		13D272F82E433A8D5236B9F0 /* CastViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 472E81327748B3F60FD13589 /* CastViewModel.swift */; };
+		25FCD304BB9C5D81FA45EDDE /* WebRtcBroadcastEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE0C97C413D3DBD087F61B4 /* WebRtcBroadcastEngine.swift */; };
+		26A218F2D60D287D7DE2B770 /* ExtensionSignalingServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54F4D2E878791867866F153C /* ExtensionSignalingServer.swift */; };
+		28DA508D98827263C826B830 /* ARCPModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C7BC60F2D4B661F9B84A290 /* ARCPModels.swift */; };
+		28FD5EB1024067AA607AD79E /* RepositoryProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = B176360CADC156050A38E47A /* RepositoryProtocols.swift */; };
+		3100D81A512295EFB65A0408 /* CastSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6FD109BF18CC8DC09C9A821 /* CastSessionManager.swift */; };
+		319550A2B08632DE99CB1DB9 /* MdnsBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2019FC6E7EB4916D96C9A1A /* MdnsBrowser.swift */; };
+		3198271E0D68B3A782607AAE /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F7530C71C651B62B5F1C1B24 /* Security.framework */; };
+		3269D32C4794F37E7959B4B4 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6AEFCC5E82A6BB6D0A09FBE6 /* AudioToolbox.framework */; };
+		36A5F72EC646B3A1CACB2200 /* SignalingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A76BBF8056EB884AA746E94 /* SignalingClient.swift */; };
+		3D8C64AC1D233FE638DB7DF6 /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9F9E80CD674FE98697A1FD6F /* MediaPlayer.framework */; };
+		3EB7EDD6CC98688F1FC7FC48 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5C3CA28A9244B854C49FA3B5 /* Assets.xcassets */; };
+		43E1BCE8DA048DE41C460F2E /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = B3A56BFBF37B021A3D4E373F /* WebRTC */; };
+		464C403A9F54F324BB9A00F2 /* BroadcastExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 04FFE6DAE47F972E9137F0D2 /* BroadcastExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4BB93A78CCD2F231B091BF12 /* CastSessionManaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = E48C504D287FA5AED0C54875 /* CastSessionManaging.swift */; };
+		4CAC2157BC0E66A7B6010C53 /* LanAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = B942EC1387CAB4245B2AB673 /* LanAddress.swift */; };
+		4DA4A5D0FC176E62D08CD3F7 /* MediaAccessibility.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8085EB94391053F3A7F87E61 /* MediaAccessibility.framework */; };
+		5567FDDD8674698C26D30461 /* WebRtcBroadcastEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE0C97C413D3DBD087F61B4 /* WebRtcBroadcastEngine.swift */; };
+		5D4D4F35FC953121C60D8C43 /* SignalingTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4EB7EF8B188C660D153414 /* SignalingTransport.swift */; };
+		5D78AC741FCB200175FEEA8B /* SignalingClient+Repository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55F4ECA5088BBAC57E34B803 /* SignalingClient+Repository.swift */; };
+		5E1DA9A29AC785C11B8D47C7 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = C9F584DE53101C7D57664E5A /* WebRTC */; };
+		68104C064895C508068DE23E /* CastModes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6E1007EA662536CA25FB12A /* CastModes.swift */; };
+		725E60965F30ADB56E0F1886 /* SignalingTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4EB7EF8B188C660D153414 /* SignalingTransport.swift */; };
+		7AEB83BFBB14D66545DC3A10 /* ConnectingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E60AAF35EC11A9ED21A0DD40 /* ConnectingView.swift */; };
+		7FA82C10CADB961182F442DF /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E8FBC4C973537DA2C26643F /* SessionStore.swift */; };
+		86A0F1793AC7D6B9F530CA0B /* SignalingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A76BBF8056EB884AA746E94 /* SignalingClient.swift */; };
+		89A7F4AE0218BD453A350848 /* MirrorStreamingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EFCC7B7D225B26175FA72C3 /* MirrorStreamingView.swift */; };
+		8BE4900B308EB4EE4FE86017 /* LanAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = B942EC1387CAB4245B2AB673 /* LanAddress.swift */; };
+		994A82EF1DBE59CAE446D103 /* V2RepositoryProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D4BA68B9E53CA77DC3FF033 /* V2RepositoryProtocols.swift */; };
+		A6B962FE8C72C26D4E969823 /* ScreenCastSessionRepositoryImpl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28969E96697A4DB62F830DC7 /* ScreenCastSessionRepositoryImpl.swift */; };
+		A94F0673998C2302857A9D6F /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC17461FF763E88778BE31A4 /* SampleHandler.swift */; };
+		AC05F242C44FCC7B08C78050 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3574F913253A7A0463C42965 /* AppTheme.swift */; };
+		B051FBDC955A23668F8FECC8 /* DomainTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E0761C250CAC4DD469396F /* DomainTypes.swift */; };
+		B6C0BD15F59B01E3C7C1A060 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF910251346F9D0027388CA0 /* ContentView.swift */; };
+		B8FEC8779A948AD1F54DB476 /* AndroidRemoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75C840E953000C77C9E4C991 /* AndroidRemoteApp.swift */; };
+		B97B7E6CC632CD54B2AB95E4 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F6E525480D60816242E0B64B /* CoreGraphics.framework */; };
+		BCB9F61E2652DF1BA477378C /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C300371F448022B70A8A2EBD /* AVKit.framework */; };
+		BD55FA9BB25453BF6FBAD3F7 /* CastBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6580DBD81B33B17719E0E9C /* CastBootstrap.swift */; };
+		BFC37298DA3B809141098DFE /* ARCPModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C7BC60F2D4B661F9B84A290 /* ARCPModels.swift */; };
+		C018FB7667BF02E1C4A98A1B /* ExtensionSignalingServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54F4D2E878791867866F153C /* ExtensionSignalingServer.swift */; };
+		D5E70CB808BFDDBDD2757FD1 /* DomainTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E0761C250CAC4DD469396F /* DomainTypes.swift */; };
+		D7BBFA446CED26CE7A1B5D17 /* CastConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01DE87AB7EDF80C41EFFD047 /* CastConfig.swift */; };
+		DC36AF6E78ED74B4787163A2 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B3B0607FF136D8E261A57C30 /* QuartzCore.framework */; };
+		E098047037B5FB11DA4E9A28 /* MirrorHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB4062C275F9036DE0137E9F /* MirrorHomeView.swift */; };
+		E3D21F5A74FF374F3C8658DE /* BroadcastPickerRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 468E02074B05FB117958D5E8 /* BroadcastPickerRepresentable.swift */; };
+		F12796B13C32BF6420E416CF /* GoogleCastStatic in Frameworks */ = {isa = PBXBuildFile; productRef = 6AC42CCF3D09821339D03FCD /* GoogleCastStatic */; };
+		F78E1FF127C41803FCDAE4ED /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B86C1FABE4FFA54C6B357C1 /* MainTabView.swift */; };
+		F84E1FB7A02F781095476005 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ABBE437BAAA01252949019AE /* SystemConfiguration.framework */; };
+		FDC8C0A8C8897735965B5F33 /* UseCases.swift in Sources */ = {isa = PBXBuildFile; fileRef = B49EA16D67C03EA0E59A6088 /* UseCases.swift */; };
+		FFAA178C2A7FAB621D236574 /* CastConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01DE87AB7EDF80C41EFFD047 /* CastConfig.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B56744082CF4686719B63C9F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6166571C5BA54D803B195E24 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 368B45EA02117DE9786D32E2;
+			remoteInfo = BroadcastExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0D65627D9802C7CC1F270FD6 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				464C403A9F54F324BB9A00F2 /* BroadcastExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		01DE87AB7EDF80C41EFFD047 /* CastConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastConfig.swift; sourceTree = "<group>"; };
+		04FFE6DAE47F972E9137F0D2 /* BroadcastExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = BroadcastExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		0A76BBF8056EB884AA746E94 /* SignalingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalingClient.swift; sourceTree = "<group>"; };
+		1BC18A559078F285FA1E1854 /* AndroidRemote.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AndroidRemote.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1D4BA68B9E53CA77DC3FF033 /* V2RepositoryProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V2RepositoryProtocols.swift; sourceTree = "<group>"; };
+		22DA1DB74F130931D3BA6707 /* AndroidRemote.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AndroidRemote.entitlements; sourceTree = "<group>"; };
+		28969E96697A4DB62F830DC7 /* ScreenCastSessionRepositoryImpl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCastSessionRepositoryImpl.swift; sourceTree = "<group>"; };
+		3574F913253A7A0463C42965 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
+		37EDD7E48BE9A9F98075DC7F /* CFNetwork.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CFNetwork.framework; path = System/Library/Frameworks/CFNetwork.framework; sourceTree = SDKROOT; };
+		3B86C1FABE4FFA54C6B357C1 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		468E02074B05FB117958D5E8 /* BroadcastPickerRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BroadcastPickerRepresentable.swift; sourceTree = "<group>"; };
+		472E81327748B3F60FD13589 /* CastViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastViewModel.swift; sourceTree = "<group>"; };
+		49831B8FECFDFDFF81F5E516 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		4EFCC7B7D225B26175FA72C3 /* MirrorStreamingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorStreamingView.swift; sourceTree = "<group>"; };
+		54F4D2E878791867866F153C /* ExtensionSignalingServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionSignalingServer.swift; sourceTree = "<group>"; };
+		55F4ECA5088BBAC57E34B803 /* SignalingClient+Repository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SignalingClient+Repository.swift"; sourceTree = "<group>"; };
+		5C3CA28A9244B854C49FA3B5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		5FE0C97C413D3DBD087F61B4 /* WebRtcBroadcastEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRtcBroadcastEngine.swift; sourceTree = "<group>"; };
+		6AEFCC5E82A6BB6D0A09FBE6 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
+		6C7BC60F2D4B661F9B84A290 /* ARCPModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARCPModels.swift; sourceTree = "<group>"; };
+		75C840E953000C77C9E4C991 /* AndroidRemoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AndroidRemoteApp.swift; sourceTree = "<group>"; };
+		8085EB94391053F3A7F87E61 /* MediaAccessibility.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaAccessibility.framework; path = System/Library/Frameworks/MediaAccessibility.framework; sourceTree = SDKROOT; };
+		85984F55FA69BB1DAFF3211E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8E8FBC4C973537DA2C26643F /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		8F4EB7EF8B188C660D153414 /* SignalingTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalingTransport.swift; sourceTree = "<group>"; };
+		8FAAC6523620A19CCBA04D56 /* BroadcastExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BroadcastExtension.entitlements; sourceTree = "<group>"; };
+		9F9E80CD674FE98697A1FD6F /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
+		A2019FC6E7EB4916D96C9A1A /* MdnsBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MdnsBrowser.swift; sourceTree = "<group>"; };
+		AB4062C275F9036DE0137E9F /* MirrorHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorHomeView.swift; sourceTree = "<group>"; };
+		ABBE437BAAA01252949019AE /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
+		B176360CADC156050A38E47A /* RepositoryProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryProtocols.swift; sourceTree = "<group>"; };
+		B3B0607FF136D8E261A57C30 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		B49EA16D67C03EA0E59A6088 /* UseCases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UseCases.swift; sourceTree = "<group>"; };
+		B4B3C74C2D522FDA4D63851D /* MirrorCastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorCastView.swift; sourceTree = "<group>"; };
+		B942EC1387CAB4245B2AB673 /* LanAddress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanAddress.swift; sourceTree = "<group>"; };
+		C300371F448022B70A8A2EBD /* AVKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVKit.framework; path = System/Library/Frameworks/AVKit.framework; sourceTree = SDKROOT; };
+		CF910251346F9D0027388CA0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		D6580DBD81B33B17719E0E9C /* CastBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastBootstrap.swift; sourceTree = "<group>"; };
+		E2E0761C250CAC4DD469396F /* DomainTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainTypes.swift; sourceTree = "<group>"; };
+		E48C504D287FA5AED0C54875 /* CastSessionManaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastSessionManaging.swift; sourceTree = "<group>"; };
+		E60AAF35EC11A9ED21A0DD40 /* ConnectingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectingView.swift; sourceTree = "<group>"; };
+		E6FD109BF18CC8DC09C9A821 /* CastSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastSessionManager.swift; sourceTree = "<group>"; };
+		EF2BA9B5B4A0A73D4052BBED /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		F6E1007EA662536CA25FB12A /* CastModes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastModes.swift; sourceTree = "<group>"; };
+		F6E525480D60816242E0B64B /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		F7530C71C651B62B5F1C1B24 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		FC17461FF763E88778BE31A4 /* SampleHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleHandler.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		ADD4EDD161F2EF95F15B8B45 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				43E1BCE8DA048DE41C460F2E /* WebRTC in Frameworks */,
+				F12796B13C32BF6420E416CF /* GoogleCastStatic in Frameworks */,
+				F84E1FB7A02F781095476005 /* SystemConfiguration.framework in Frameworks */,
+				1273916E57A8D0EDCB95E595 /* CFNetwork.framework in Frameworks */,
+				3198271E0D68B3A782607AAE /* Security.framework in Frameworks */,
+				B97B7E6CC632CD54B2AB95E4 /* CoreGraphics.framework in Frameworks */,
+				0E2D3D11481EDA3A82388C29 /* AVFoundation.framework in Frameworks */,
+				BCB9F61E2652DF1BA477378C /* AVKit.framework in Frameworks */,
+				3269D32C4794F37E7959B4B4 /* AudioToolbox.framework in Frameworks */,
+				4DA4A5D0FC176E62D08CD3F7 /* MediaAccessibility.framework in Frameworks */,
+				3D8C64AC1D233FE638DB7DF6 /* MediaPlayer.framework in Frameworks */,
+				DC36AF6E78ED74B4787163A2 /* QuartzCore.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D02A5754F66646B228A2B9A0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5E1DA9A29AC785C11B8D47C7 /* WebRTC in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0AE7FCEFCF7F66057F6A86E5 /* UseCases */ = {
+			isa = PBXGroup;
+			children = (
+				B49EA16D67C03EA0E59A6088 /* UseCases.swift */,
+			);
+			path = UseCases;
+			sourceTree = "<group>";
+		};
+		0EA8136A2866D55DB79AD6E1 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				EB49A7FBAE6808BF2372E467 /* Cast */,
+				902A997BED5674D80CED0B88 /* Discovery */,
+				CF742975D27F3BDBD733EC87 /* Session */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		15433FF3DB59D50260644E02 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				468E02074B05FB117958D5E8 /* BroadcastPickerRepresentable.swift */,
+				E60AAF35EC11A9ED21A0DD40 /* ConnectingView.swift */,
+				CF910251346F9D0027388CA0 /* ContentView.swift */,
+				3B86C1FABE4FFA54C6B357C1 /* MainTabView.swift */,
+				B4B3C74C2D522FDA4D63851D /* MirrorCastView.swift */,
+				AB4062C275F9036DE0137E9F /* MirrorHomeView.swift */,
+				4EFCC7B7D225B26175FA72C3 /* MirrorStreamingView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		20DAE7303666C6C3437AFC2E /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				472E81327748B3F60FD13589 /* CastViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		2F106C41A00DDE85847189A3 = {
+			isa = PBXGroup;
+			children = (
+				C9C81DE7FAD49565E7C45348 /* AndroidRemote */,
+				FF6C41627EE579EC5A57C4D2 /* BroadcastExtension */,
+				AD925CE84A55B77B2563BB79 /* Shared */,
+				E382906AA0089416A546B851 /* Frameworks */,
+				8D57626CC157F266D6872079 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		505BB451034D80EA1A834BD2 /* Repositories */ = {
+			isa = PBXGroup;
+			children = (
+				B176360CADC156050A38E47A /* RepositoryProtocols.swift */,
+				1D4BA68B9E53CA77DC3FF033 /* V2RepositoryProtocols.swift */,
+			);
+			path = Repositories;
+			sourceTree = "<group>";
+		};
+		67CBC42B781AEB1A7BAD3903 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				3574F913253A7A0463C42965 /* AppTheme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		7D601800B6C0908D7F27DAEB /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				9A81961A18F5A4B2D8FC069C /* Entities */,
+				505BB451034D80EA1A834BD2 /* Repositories */,
+				0AE7FCEFCF7F66057F6A86E5 /* UseCases */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		80AA2B3D9FB8C9EE49631706 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				5C3CA28A9244B854C49FA3B5 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		8D57626CC157F266D6872079 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1BC18A559078F285FA1E1854 /* AndroidRemote.app */,
+				04FFE6DAE47F972E9137F0D2 /* BroadcastExtension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		902A997BED5674D80CED0B88 /* Discovery */ = {
+			isa = PBXGroup;
+			children = (
+				A2019FC6E7EB4916D96C9A1A /* MdnsBrowser.swift */,
+			);
+			path = Discovery;
+			sourceTree = "<group>";
+		};
+		9A81961A18F5A4B2D8FC069C /* Entities */ = {
+			isa = PBXGroup;
+			children = (
+				F6E1007EA662536CA25FB12A /* CastModes.swift */,
+			);
+			path = Entities;
+			sourceTree = "<group>";
+		};
+		9DB657755AE9C0A46F86B45F /* Presentation */ = {
+			isa = PBXGroup;
+			children = (
+				67CBC42B781AEB1A7BAD3903 /* Theme */,
+				20DAE7303666C6C3437AFC2E /* ViewModels */,
+				15433FF3DB59D50260644E02 /* Views */,
+			);
+			path = Presentation;
+			sourceTree = "<group>";
+		};
+		AD925CE84A55B77B2563BB79 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				6C7BC60F2D4B661F9B84A290 /* ARCPModels.swift */,
+				01DE87AB7EDF80C41EFFD047 /* CastConfig.swift */,
+				E2E0761C250CAC4DD469396F /* DomainTypes.swift */,
+				54F4D2E878791867866F153C /* ExtensionSignalingServer.swift */,
+				B942EC1387CAB4245B2AB673 /* LanAddress.swift */,
+				8E8FBC4C973537DA2C26643F /* SessionStore.swift */,
+				0A76BBF8056EB884AA746E94 /* SignalingClient.swift */,
+				8F4EB7EF8B188C660D153414 /* SignalingTransport.swift */,
+				5FE0C97C413D3DBD087F61B4 /* WebRtcBroadcastEngine.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		C9C81DE7FAD49565E7C45348 /* AndroidRemote */ = {
+			isa = PBXGroup;
+			children = (
+				0EA8136A2866D55DB79AD6E1 /* Data */,
+				7D601800B6C0908D7F27DAEB /* Domain */,
+				9DB657755AE9C0A46F86B45F /* Presentation */,
+				80AA2B3D9FB8C9EE49631706 /* Resources */,
+				22DA1DB74F130931D3BA6707 /* AndroidRemote.entitlements */,
+				75C840E953000C77C9E4C991 /* AndroidRemoteApp.swift */,
+				85984F55FA69BB1DAFF3211E /* Info.plist */,
+			);
+			path = AndroidRemote;
+			sourceTree = "<group>";
+		};
+		CF742975D27F3BDBD733EC87 /* Session */ = {
+			isa = PBXGroup;
+			children = (
+				28969E96697A4DB62F830DC7 /* ScreenCastSessionRepositoryImpl.swift */,
+				55F4ECA5088BBAC57E34B803 /* SignalingClient+Repository.swift */,
+			);
+			path = Session;
+			sourceTree = "<group>";
+		};
+		E382906AA0089416A546B851 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				6AEFCC5E82A6BB6D0A09FBE6 /* AudioToolbox.framework */,
+				EF2BA9B5B4A0A73D4052BBED /* AVFoundation.framework */,
+				C300371F448022B70A8A2EBD /* AVKit.framework */,
+				37EDD7E48BE9A9F98075DC7F /* CFNetwork.framework */,
+				F6E525480D60816242E0B64B /* CoreGraphics.framework */,
+				8085EB94391053F3A7F87E61 /* MediaAccessibility.framework */,
+				9F9E80CD674FE98697A1FD6F /* MediaPlayer.framework */,
+				B3B0607FF136D8E261A57C30 /* QuartzCore.framework */,
+				F7530C71C651B62B5F1C1B24 /* Security.framework */,
+				ABBE437BAAA01252949019AE /* SystemConfiguration.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		EB49A7FBAE6808BF2372E467 /* Cast */ = {
+			isa = PBXGroup;
+			children = (
+				D6580DBD81B33B17719E0E9C /* CastBootstrap.swift */,
+				E6FD109BF18CC8DC09C9A821 /* CastSessionManager.swift */,
+				E48C504D287FA5AED0C54875 /* CastSessionManaging.swift */,
+			);
+			path = Cast;
+			sourceTree = "<group>";
+		};
+		FF6C41627EE579EC5A57C4D2 /* BroadcastExtension */ = {
+			isa = PBXGroup;
+			children = (
+				8FAAC6523620A19CCBA04D56 /* BroadcastExtension.entitlements */,
+				49831B8FECFDFDFF81F5E516 /* Info.plist */,
+				FC17461FF763E88778BE31A4 /* SampleHandler.swift */,
+			);
+			path = BroadcastExtension;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2E0339ECEC9623BE3B9EBDF3 /* AndroidRemote */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 55D2556AA4B5BBC0E3FD5E55 /* Build configuration list for PBXNativeTarget "AndroidRemote" */;
+			buildPhases = (
+				ED16D6C39E981EE929EBF9D1 /* Sources */,
+				1C3665EF7794DD4BD29F506A /* Resources */,
+				ADD4EDD161F2EF95F15B8B45 /* Frameworks */,
+				0D65627D9802C7CC1F270FD6 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B3E4C99AFD9C264D1EABB671 /* PBXTargetDependency */,
+			);
+			name = AndroidRemote;
+			packageProductDependencies = (
+				B3A56BFBF37B021A3D4E373F /* WebRTC */,
+				6AC42CCF3D09821339D03FCD /* GoogleCastStatic */,
+			);
+			productName = AndroidRemote;
+			productReference = 1BC18A559078F285FA1E1854 /* AndroidRemote.app */;
+			productType = "com.apple.product-type.application";
+		};
+		368B45EA02117DE9786D32E2 /* BroadcastExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BF89666315E9E127E9B958F0 /* Build configuration list for PBXNativeTarget "BroadcastExtension" */;
+			buildPhases = (
+				A21FCC13F71CAA1F19C99DE3 /* Sources */,
+				D02A5754F66646B228A2B9A0 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BroadcastExtension;
+			packageProductDependencies = (
+				C9F584DE53101C7D57664E5A /* WebRTC */,
+			);
+			productName = BroadcastExtension;
+			productReference = 04FFE6DAE47F972E9137F0D2 /* BroadcastExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		6166571C5BA54D803B195E24 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					2E0339ECEC9623BE3B9EBDF3 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					368B45EA02117DE9786D32E2 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 0DC6836DD9AA25FD63FFDE60 /* Build configuration list for PBXProject "AndroidRemote" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 2F106C41A00DDE85847189A3;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				E52F66415338BFF0655CA14F /* XCRemoteSwiftPackageReference "google-cast-spm" */,
+				6E24B6DDCD6129F1A92FE18A /* XCRemoteSwiftPackageReference "WebRTC" */,
+			);
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2E0339ECEC9623BE3B9EBDF3 /* AndroidRemote */,
+				368B45EA02117DE9786D32E2 /* BroadcastExtension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		1C3665EF7794DD4BD29F506A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3EB7EDD6CC98688F1FC7FC48 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A21FCC13F71CAA1F19C99DE3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				28DA508D98827263C826B830 /* ARCPModels.swift in Sources */,
+				D7BBFA446CED26CE7A1B5D17 /* CastConfig.swift in Sources */,
+				D5E70CB808BFDDBDD2757FD1 /* DomainTypes.swift in Sources */,
+				26A218F2D60D287D7DE2B770 /* ExtensionSignalingServer.swift in Sources */,
+				4CAC2157BC0E66A7B6010C53 /* LanAddress.swift in Sources */,
+				A94F0673998C2302857A9D6F /* SampleHandler.swift in Sources */,
+				0FF0FC9A807BB826EA8EC780 /* SessionStore.swift in Sources */,
+				86A0F1793AC7D6B9F530CA0B /* SignalingClient.swift in Sources */,
+				5D4D4F35FC953121C60D8C43 /* SignalingTransport.swift in Sources */,
+				25FCD304BB9C5D81FA45EDDE /* WebRtcBroadcastEngine.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ED16D6C39E981EE929EBF9D1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BFC37298DA3B809141098DFE /* ARCPModels.swift in Sources */,
+				B8FEC8779A948AD1F54DB476 /* AndroidRemoteApp.swift in Sources */,
+				AC05F242C44FCC7B08C78050 /* AppTheme.swift in Sources */,
+				E3D21F5A74FF374F3C8658DE /* BroadcastPickerRepresentable.swift in Sources */,
+				BD55FA9BB25453BF6FBAD3F7 /* CastBootstrap.swift in Sources */,
+				FFAA178C2A7FAB621D236574 /* CastConfig.swift in Sources */,
+				68104C064895C508068DE23E /* CastModes.swift in Sources */,
+				3100D81A512295EFB65A0408 /* CastSessionManager.swift in Sources */,
+				4BB93A78CCD2F231B091BF12 /* CastSessionManaging.swift in Sources */,
+				13D272F82E433A8D5236B9F0 /* CastViewModel.swift in Sources */,
+				7AEB83BFBB14D66545DC3A10 /* ConnectingView.swift in Sources */,
+				B6C0BD15F59B01E3C7C1A060 /* ContentView.swift in Sources */,
+				B051FBDC955A23668F8FECC8 /* DomainTypes.swift in Sources */,
+				C018FB7667BF02E1C4A98A1B /* ExtensionSignalingServer.swift in Sources */,
+				8BE4900B308EB4EE4FE86017 /* LanAddress.swift in Sources */,
+				F78E1FF127C41803FCDAE4ED /* MainTabView.swift in Sources */,
+				319550A2B08632DE99CB1DB9 /* MdnsBrowser.swift in Sources */,
+				05BADE4B90438FC45B967841 /* MirrorCastView.swift in Sources */,
+				E098047037B5FB11DA4E9A28 /* MirrorHomeView.swift in Sources */,
+				89A7F4AE0218BD453A350848 /* MirrorStreamingView.swift in Sources */,
+				28FD5EB1024067AA607AD79E /* RepositoryProtocols.swift in Sources */,
+				A6B962FE8C72C26D4E969823 /* ScreenCastSessionRepositoryImpl.swift in Sources */,
+				7FA82C10CADB961182F442DF /* SessionStore.swift in Sources */,
+				5D78AC741FCB200175FEEA8B /* SignalingClient+Repository.swift in Sources */,
+				36A5F72EC646B3A1CACB2200 /* SignalingClient.swift in Sources */,
+				725E60965F30ADB56E0F1886 /* SignalingTransport.swift in Sources */,
+				FDC8C0A8C8897735965B5F33 /* UseCases.swift in Sources */,
+				994A82EF1DBE59CAE446D103 /* V2RepositoryProtocols.swift in Sources */,
+				5567FDDD8674698C26D30461 /* WebRtcBroadcastEngine.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B3E4C99AFD9C264D1EABB671 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 368B45EA02117DE9786D32E2 /* BroadcastExtension */;
+			targetProxy = B56744082CF4686719B63C9F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0DAE9762FAB1FF061D1272EA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = AndroidRemote/AndroidRemote.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = AndroidRemote/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTHER_LDFLAGS = "$(inherited) -ObjC -lc++";
+				PRODUCT_BUNDLE_IDENTIFIER = com.androidremote.app;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = APP_TARGET;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		3DB1DBE4D32FB67843A173BF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.10;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		49068623B88ADDC987973FCC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = BroadcastExtension/BroadcastExtension.entitlements;
+				INFOPLIST_FILE = BroadcastExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.androidremote.app.BroadcastExtension;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		6CFF253E523D7F0545A47FC2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = AndroidRemote/AndroidRemote.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = AndroidRemote/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTHER_LDFLAGS = "$(inherited) -ObjC -lc++";
+				PRODUCT_BUNDLE_IDENTIFIER = com.androidremote.app;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = APP_TARGET;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		9FA8B6CAAEE39BB44BECD254 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.10;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		D943117B871E37FDE0E4358D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = BroadcastExtension/BroadcastExtension.entitlements;
+				INFOPLIST_FILE = BroadcastExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.androidremote.app.BroadcastExtension;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0DC6836DD9AA25FD63FFDE60 /* Build configuration list for PBXProject "AndroidRemote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3DB1DBE4D32FB67843A173BF /* Debug */,
+				9FA8B6CAAEE39BB44BECD254 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		55D2556AA4B5BBC0E3FD5E55 /* Build configuration list for PBXNativeTarget "AndroidRemote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0DAE9762FAB1FF061D1272EA /* Debug */,
+				6CFF253E523D7F0545A47FC2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BF89666315E9E127E9B958F0 /* Build configuration list for PBXNativeTarget "BroadcastExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49068623B88ADDC987973FCC /* Debug */,
+				D943117B871E37FDE0E4358D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		6E24B6DDCD6129F1A92FE18A /* XCRemoteSwiftPackageReference "WebRTC" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stasel/WebRTC.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 149.0.0;
+			};
+		};
+		E52F66415338BFF0655CA14F /* XCRemoteSwiftPackageReference "google-cast-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/castlabs/google-cast-spm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.8.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6AC42CCF3D09821339D03FCD /* GoogleCastStatic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E52F66415338BFF0655CA14F /* XCRemoteSwiftPackageReference "google-cast-spm" */;
+			productName = GoogleCastStatic;
+		};
+		B3A56BFBF37B021A3D4E373F /* WebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6E24B6DDCD6129F1A92FE18A /* XCRemoteSwiftPackageReference "WebRTC" */;
+			productName = WebRTC;
+		};
+		C9F584DE53101C7D57664E5A /* WebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6E24B6DDCD6129F1A92FE18A /* XCRemoteSwiftPackageReference "WebRTC" */;
+			productName = WebRTC;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 6166571C5BA54D803B195E24 /* Project object */;
+}
