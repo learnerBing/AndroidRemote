@@ -77,6 +77,7 @@ enum SessionStore {
             signalingPort: relayPort,
             deviceName: device.name
         ))
+        ARLog.info("Session", "saved direct test session=\(ARLog.sessionPrefix(sessionId)) relay=\(relayHost):\(relayPort)")
     }
 
     static func saveCastSession(
@@ -105,7 +106,10 @@ enum SessionStore {
     }
 
     static func load() -> Snapshot? {
-        if let fromFile = readSnapshotFile() { return fromFile }
+        if let fromFile = readSnapshotFile() {
+            ARLog.info("Session", "loaded from file session=\(ARLog.sessionPrefix(fromFile.sessionId)) relay=\(fromFile.signalingHost):\(fromFile.signalingPort)")
+            return fromFile
+        }
         guard let defaults,
               defaults.bool(forKey: Key.isPaired),
               let sessionId = defaults.string(forKey: Key.sessionId),
@@ -113,20 +117,27 @@ enum SessionStore {
               let name = defaults.string(forKey: Key.deviceName),
               let transportRaw = defaults.string(forKey: Key.transport),
               let transport = SignalingTransport(rawValue: transportRaw) else {
+            ARLog.warn("Session", "load failed — no paired session")
             return nil
         }
         let port = defaults.integer(forKey: Key.signalingPort)
-        guard port > 0 else { return nil }
-        return Snapshot(
+        guard port > 0 else {
+            ARLog.warn("Session", "load failed — invalid port")
+            return nil
+        }
+        let snapshot = Snapshot(
             sessionId: sessionId,
             transport: transport,
             signalingHost: host,
             signalingPort: port,
             deviceName: name
         )
+        ARLog.info("Session", "loaded from defaults session=\(ARLog.sessionPrefix(sessionId)) relay=\(host):\(port)")
+        return snapshot
     }
 
     static func clear() {
+        ARLog.info("Session", "clear")
         guard let defaults else { return }
         defaults.removeObject(forKey: Key.sessionId)
         defaults.removeObject(forKey: Key.signalingHost)

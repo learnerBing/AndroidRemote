@@ -41,6 +41,7 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
     }
 
     func start(session: SessionStore.Snapshot) async throws {
+        ARLog.info("WebRTC", "start session=\(ARLog.sessionPrefix(session.sessionId)) transport=\(session.transport.rawValue) relay=\(session.signalingHost):\(session.signalingPort)")
         signaling.bind(snapshot: session)
         activeSessionId = session.sessionId
 
@@ -63,6 +64,7 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
 
     func stop() {
         let endingSession = activeSessionId
+        ARLog.info("WebRTC", "stop session=\(endingSession.map(ARLog.sessionPrefix) ?? "none")")
         extensionSignalingServer.stop()
         activeSessionId = nil
 #if canImport(WebRTC)
@@ -103,25 +105,27 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
     }
 
     private func startWebRtc(sessionId: String) async throws {
+        ARLog.info("WebRTC", "setupPeerConnection session=\(ARLog.sessionPrefix(sessionId))")
         try await runOnFactoryQueue {
             try self.setupPeerConnection()
         }
 
+        ARLog.info("WebRTC", "createOffer session=\(ARLog.sessionPrefix(sessionId))")
         let offer = try await createOffer()
+        ARLog.info("WebRTC", "setLocalDescription session=\(ARLog.sessionPrefix(sessionId)) bytes=\(offer.sdp.count)")
         try await setLocalDescription(offer)
-        await waitForIceGatheringComplete(timeoutSeconds: 8)
 
-        let finalSdp = factoryQueue.sync {
-            peerConnection?.localDescription?.sdp ?? offer.sdp
-        }
         offerSent = true
-        try await signaling.sendOffer(sessionId: sessionId, sdp: finalSdp)
+        ARLog.info("WebRTC", "sendOffer (initial) session=\(ARLog.sessionPrefix(sessionId)) bytes=\(offer.sdp.count)")
+        try await signaling.sendOffer(sessionId: sessionId, sdp: offer.sdp)
         try await flushLocalIceCandidates(sessionId: sessionId)
+        ARLog.info("WebRTC", "offer on relay — waiting for answer session=\(ARLog.sessionPrefix(sessionId))")
 
         startOfferRefreshTask(sessionId: sessionId)
         startLocalIceRepublish(sessionId: sessionId)
 
         try await exchangeIce(sessionId: sessionId)
+        ARLog.info("WebRTC", "answer applied session=\(ARLog.sessionPrefix(sessionId))")
         startRemoteIcePolling(sessionId: sessionId)
     }
 
@@ -399,6 +403,7 @@ extension WebRtcBroadcastEngine: RTCPeerConnectionDelegate {
     func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
         guard let sessionId = activeSessionId else { return }
+        ARLog.info("WebRTC", "ICE state=\(newState.rawValue) session=\(ARLog.sessionPrefix(sessionId))")
         switch newState {
         case .connected, .completed:
             extensionSignalingServer.updateConnectionState(sessionId, state: "connected")

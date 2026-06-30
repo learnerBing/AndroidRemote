@@ -21,6 +21,7 @@ final class SignalingClient: @unchecked Sendable {
 
     func bind(snapshot: SessionStore.Snapshot) {
         bind(host: snapshot.tvHost, port: snapshot.tvPort)
+        ARLog.info("Signaling", "bound relay \(snapshot.tvHost):\(snapshot.tvPort) session=\(ARLog.sessionPrefix(snapshot.sessionId)) transport=\(snapshot.transport.rawValue)")
     }
 
     // MARK: - Pairing
@@ -47,18 +48,22 @@ final class SignalingClient: @unchecked Sendable {
     // MARK: - SDP
 
     func sendOffer(sessionId: String, sdp: String) async throws {
+        ARLog.info("Signaling", "sendOffer session=\(ARLog.sessionPrefix(sessionId)) bytes=\(sdp.count)")
         var lastError: Error = CastError.notConfigured
         for attempt in 0..<8 {
             do {
                 try await postSdp(sessionId: sessionId, type: "offer", sdp: sdp)
+                ARLog.info("Signaling", "sendOffer OK attempt=\(attempt + 1) session=\(ARLog.sessionPrefix(sessionId))")
                 return
             } catch {
                 lastError = error
+                ARLog.warn("Signaling", "sendOffer failed attempt=\(attempt + 1) session=\(ARLog.sessionPrefix(sessionId)) error=\(error.localizedDescription)")
                 if attempt < 7 {
                     try await Task.sleep(nanoseconds: 400_000_000)
                 }
             }
         }
+        ARLog.error("Signaling", "sendOffer gave up session=\(ARLog.sessionPrefix(sessionId))")
         throw lastError
     }
 
@@ -97,6 +102,8 @@ final class SignalingClient: @unchecked Sendable {
         request.timeoutInterval = 15
         let (_, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            ARLog.error("Signaling", "POST /sdp type=\(type) session=\(ARLog.sessionPrefix(sessionId)) HTTP \(code) url=\(url.absoluteString)")
             throw CastError.discoveryFailed
         }
     }
@@ -117,7 +124,11 @@ final class SignalingClient: @unchecked Sendable {
             sdpMLineIndex: candidate.sdpMLineIndex
         )
         request.httpBody = try JSONEncoder().encode(body)
-        _ = try await session.data(for: request)
+        let (_, response) = try await session.data(for: request)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+        if code < 200 || code >= 300 {
+            ARLog.warn("Signaling", "POST /ice side=\(side) session=\(ARLog.sessionPrefix(sessionId)) HTTP \(code)")
+        }
     }
 
     func pollRemoteIceCandidates(sessionId: String, side: String = "receiver") async throws -> [IceCandidate] {
@@ -149,12 +160,16 @@ final class SignalingClient: @unchecked Sendable {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return "waiting" }
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            ARLog.warn("Signaling", "GET /status session=\(ARLog.sessionPrefix(sessionId)) failed")
+            return "waiting"
+        }
         let status = try JSONDecoder().decode(ARCPStatusResponse.self, from: data)
         return status.state
     }
 
     func updateSessionStatus(sessionId: String, state: String) async throws {
+        ARLog.info("Signaling", "POST /status state=\(state) session=\(ARLog.sessionPrefix(sessionId))")
         let url = try endpoint("status")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -167,6 +182,8 @@ final class SignalingClient: @unchecked Sendable {
         request.httpBody = try JSONEncoder().encode(Body(sessionId: sessionId, state: state))
         let (_, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            ARLog.error("Signaling", "POST /status failed HTTP \(code) session=\(ARLog.sessionPrefix(sessionId))")
             throw CastError.discoveryFailed
         }
     }

@@ -10,6 +10,8 @@
 		05BADE4B90438FC45B967841 /* MirrorCastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B3C74C2D522FDA4D63851D /* MirrorCastView.swift */; };
 		0E2D3D11481EDA3A82388C29 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF2BA9B5B4A0A73D4052BBED /* AVFoundation.framework */; };
 		0FF0FC9A807BB826EA8EC780 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E8FBC4C973537DA2C26643F /* SessionStore.swift */; };
+		F1A2B3C4D5E60718293A4B01 /* ARLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E60718293A4B03 /* ARLog.swift */; };
+		F1A2B3C4D5E60718293A4B02 /* ARLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E60718293A4B03 /* ARLog.swift */; };
 		11807BBC948B514143136647 /* LocalNetworkAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 542523C727BA6311E53C172E /* LocalNetworkAuthorization.swift */; };
 		1273916E57A8D0EDCB95E595 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 37EDD7E48BE9A9F98075DC7F /* CFNetwork.framework */; };
 		13D272F82E433A8D5236B9F0 /* CastViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 472E81327748B3F60FD13589 /* CastViewModel.swift */; };
@@ -120,6 +122,7 @@
 		55F4ECA5088BBAC57E34B803 /* SignalingClient+Repository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SignalingClient+Repository.swift"; sourceTree = "<group>"; };
 		5C3CA28A9244B854C49FA3B5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		5FE0C97C413D3DBD087F61B4 /* WebRtcBroadcastEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRtcBroadcastEngine.swift; sourceTree = "<group>"; };
+		F1A2B3C4D5E60718293A4B03 /* ARLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARLog.swift; sourceTree = "<group>"; };
 		6AEFCC5E82A6BB6D0A09FBE6 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		6C7BC60F2D4B661F9B84A290 /* ARCPModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARCPModels.swift; sourceTree = "<group>"; };
 		6E2902F14A838203B9DD94E5 /* HttpResponseBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HttpResponseBuilder.swift; sourceTree = "<group>"; };
@@ -316,6 +319,7 @@
 			isa = PBXGroup;
 			children = (
 				6C7BC60F2D4B661F9B84A290 /* ARCPModels.swift */,
+				F1A2B3C4D5E60718293A4B03 /* ARLog.swift */,
 				01DE87AB7EDF80C41EFFD047 /* CastConfig.swift */,
 				E2E0761C250CAC4DD469396F /* DomainTypes.swift */,
 				54F4D2E878791867866F153C /* ExtensionSignalingServer.swift */,
@@ -510,6 +514,7 @@
 				FF54AF2FD649956964F940F7 /* HttpResponseBuilder.swift in Sources */,
 				4CAC2157BC0E66A7B6010C53 /* LanAddress.swift in Sources */,
 				A94F0673998C2302857A9D6F /* SampleHandler.swift in Sources */,
+				F1A2B3C4D5E60718293A4B01 /* ARLog.swift in Sources */,
 				0FF0FC9A807BB826EA8EC780 /* SessionStore.swift in Sources */,
 				86A0F1793AC7D6B9F530CA0B /* SignalingClient.swift in Sources */,
 				5D4D4F35FC953121C60D8C43 /* SignalingTransport.swift in Sources */,
@@ -524,6 +529,7 @@
 			files = (
 				BFC37298DA3B809141098DFE /* ARCPModels.swift in Sources */,
 				B8FEC8779A948AD1F54DB476 /* AndroidRemoteApp.swift in Sources */,
+				F1A2B3C4D5E60718293A4B02 /* ARLog.swift in Sources */,
 				AC05F242C44FCC7B08C78050 /* AppTheme.swift in Sources */,
 				E3D21F5A74FF374F3C8658DE /* BroadcastPickerRepresentable.swift in Sources */,
 				BD55FA9BB25453BF6FBAD3F7 /* CastBootstrap.swift in Sources */,

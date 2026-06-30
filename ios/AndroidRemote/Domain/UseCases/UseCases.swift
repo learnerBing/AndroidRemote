@@ -80,13 +80,25 @@ struct ObserveCastStatusUseCase {
     let sessionStore: ScreenCastSessionRepository
 
     func pollUntilConnected(timeoutSeconds: Int = 120) async throws -> Bool {
-        guard let snapshot = sessionStore.loadSession() else { return false }
+        guard let snapshot = sessionStore.loadSession() else {
+            ARLog.warn("Test", "pollUntilConnected — no session")
+            return false
+        }
         signaling.bind(snapshot: snapshot)
-        for _ in 0..<(timeoutSeconds * 2) {
+        ARLog.info("Test", "polling status session=\(ARLog.sessionPrefix(snapshot.sessionId))")
+        var lastStatus = ""
+        for i in 0..<(timeoutSeconds * 2) {
             let status = try await signaling.pollStatus(sessionId: snapshot.sessionId)
+            if status != lastStatus {
+                ARLog.info("Test", "status=\(status) session=\(ARLog.sessionPrefix(snapshot.sessionId))")
+                lastStatus = status
+            } else if i == 0 || i % 20 == 19 {
+                ARLog.info("Test", "still status=\(status) poll=\(i + 1)")
+            }
             if status == "connected" { return true }
             try await Task.sleep(nanoseconds: 500_000_000)
         }
+        ARLog.warn("Test", "pollUntilConnected timeout session=\(ARLog.sessionPrefix(snapshot.sessionId))")
         return false
     }
 }

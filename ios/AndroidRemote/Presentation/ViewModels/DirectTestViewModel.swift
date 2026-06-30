@@ -48,6 +48,7 @@ final class DirectTestViewModel: ObservableObject {
 
     func linkReceiver() {
         guard canLink, let port = Int(relayPort) else { return }
+        ARLog.info("Test", "linkReceiver relay=\(relayHost):\(port)")
         connectionState = .connecting
         errorMessage = nil
         UserDefaults.standard.set(relayHost, forKey: "test.relayHost")
@@ -59,8 +60,11 @@ final class DirectTestViewModel: ObservableObject {
                     relayPort: port
                 )
                 detectedCode = session.pairingCode
+                ARLog.configureRelay(host: relayHost, port: port, sessionId: session.sessionId)
+                ARLog.info("Test", "linked code=\(session.pairingCode) session=\(ARLog.sessionPrefix(session.sessionId))")
                 startStatusPolling()
             } catch {
+                ARLog.error("Test", "link failed: \(error.localizedDescription)")
                 errorMessage = error.localizedDescription
                 showError = true
                 connectionState = .idle
@@ -83,6 +87,7 @@ final class DirectTestViewModel: ObservableObject {
             }
         }
         SessionStore.clear()
+        ARLog.clearRelay()
         connectionState = .idle
         detectedCode = nil
     }
