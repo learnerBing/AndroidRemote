@@ -157,7 +157,11 @@
             watchForWebRtc();
           }
         } catch (e) {
-          setStatus('Cannot reach iPhone — check IP and same Wi‑Fi');
+          if (e instanceof TypeError && String(e).includes('Failed to fetch')) {
+            setStatus(`Cannot reach iPhone at ${iphoneInput.value.trim()}:${COORD_PORT} — allow Local Network on iPhone, same Wi‑Fi, app open on Test tab`);
+          } else {
+            setStatus('Cannot reach iPhone — check IP, Wi‑Fi, Local Network permission');
+          }
         }
       }, 800);
     }

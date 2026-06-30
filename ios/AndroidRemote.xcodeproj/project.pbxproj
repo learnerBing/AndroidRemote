@@ -10,6 +10,7 @@
 		05BADE4B90438FC45B967841 /* MirrorCastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B3C74C2D522FDA4D63851D /* MirrorCastView.swift */; };
 		0E2D3D11481EDA3A82388C29 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF2BA9B5B4A0A73D4052BBED /* AVFoundation.framework */; };
 		0FF0FC9A807BB826EA8EC780 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E8FBC4C973537DA2C26643F /* SessionStore.swift */; };
+		11807BBC948B514143136647 /* LocalNetworkAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 542523C727BA6311E53C172E /* LocalNetworkAuthorization.swift */; };
 		1273916E57A8D0EDCB95E595 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 37EDD7E48BE9A9F98075DC7F /* CFNetwork.framework */; };
 		13D272F82E433A8D5236B9F0 /* CastViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 472E81327748B3F60FD13589 /* CastViewModel.swift */; };
 		25FCD304BB9C5D81FA45EDDE /* WebRtcBroadcastEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FE0C97C413D3DBD087F61B4 /* WebRtcBroadcastEngine.swift */; };
@@ -44,6 +45,7 @@
 		8BE4900B308EB4EE4FE86017 /* LanAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = B942EC1387CAB4245B2AB673 /* LanAddress.swift */; };
 		994A82EF1DBE59CAE446D103 /* V2RepositoryProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D4BA68B9E53CA77DC3FF033 /* V2RepositoryProtocols.swift */; };
 		9E8673376115BC617D8FF18A /* DirectTestViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCF0604C6E5DF802B72B183B /* DirectTestViewModel.swift */; };
+		A3A017BC590EFC7E8FF7DAAB /* TestCoordinatorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB3F97EE026559AA9F75E600 /* TestCoordinatorService.swift */; };
 		A6B962FE8C72C26D4E969823 /* ScreenCastSessionRepositoryImpl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28969E96697A4DB62F830DC7 /* ScreenCastSessionRepositoryImpl.swift */; };
 		A94F0673998C2302857A9D6F /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC17461FF763E88778BE31A4 /* SampleHandler.swift */; };
 		AC05F242C44FCC7B08C78050 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3574F913253A7A0463C42965 /* AppTheme.swift */; };
@@ -54,6 +56,7 @@
 		B97B7E6CC632CD54B2AB95E4 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F6E525480D60816242E0B64B /* CoreGraphics.framework */; };
 		BCB9F61E2652DF1BA477378C /* AVKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C300371F448022B70A8A2EBD /* AVKit.framework */; };
 		BD55FA9BB25453BF6FBAD3F7 /* CastBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6580DBD81B33B17719E0E9C /* CastBootstrap.swift */; };
+		BF810A641336D2FECE7B81BD /* CoordinatorHealthCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70B46757D51ACAAF89065421 /* CoordinatorHealthCheck.swift */; };
 		BFC37298DA3B809141098DFE /* ARCPModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C7BC60F2D4B661F9B84A290 /* ARCPModels.swift */; };
 		C018FB7667BF02E1C4A98A1B /* ExtensionSignalingServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54F4D2E878791867866F153C /* ExtensionSignalingServer.swift */; };
 		D5E70CB808BFDDBDD2757FD1 /* DomainTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E0761C250CAC4DD469396F /* DomainTypes.swift */; };
@@ -111,6 +114,7 @@
 		472E81327748B3F60FD13589 /* CastViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastViewModel.swift; sourceTree = "<group>"; };
 		49831B8FECFDFDFF81F5E516 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		4EFCC7B7D225B26175FA72C3 /* MirrorStreamingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorStreamingView.swift; sourceTree = "<group>"; };
+		542523C727BA6311E53C172E /* LocalNetworkAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkAuthorization.swift; sourceTree = "<group>"; };
 		54F4D2E878791867866F153C /* ExtensionSignalingServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionSignalingServer.swift; sourceTree = "<group>"; };
 		55F4ECA5088BBAC57E34B803 /* SignalingClient+Repository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SignalingClient+Repository.swift"; sourceTree = "<group>"; };
 		5C3CA28A9244B854C49FA3B5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -118,6 +122,7 @@
 		6AEFCC5E82A6BB6D0A09FBE6 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		6C7BC60F2D4B661F9B84A290 /* ARCPModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARCPModels.swift; sourceTree = "<group>"; };
 		6E2902F14A838203B9DD94E5 /* HttpResponseBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HttpResponseBuilder.swift; sourceTree = "<group>"; };
+		70B46757D51ACAAF89065421 /* CoordinatorHealthCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoordinatorHealthCheck.swift; sourceTree = "<group>"; };
 		75C840E953000C77C9E4C991 /* AndroidRemoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AndroidRemoteApp.swift; sourceTree = "<group>"; };
 		8085EB94391053F3A7F87E61 /* MediaAccessibility.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaAccessibility.framework; path = System/Library/Frameworks/MediaAccessibility.framework; sourceTree = SDKROOT; };
 		85984F55FA69BB1DAFF3211E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -136,6 +141,7 @@
 		C300371F448022B70A8A2EBD /* AVKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVKit.framework; path = System/Library/Frameworks/AVKit.framework; sourceTree = SDKROOT; };
 		CF910251346F9D0027388CA0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		D6580DBD81B33B17719E0E9C /* CastBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastBootstrap.swift; sourceTree = "<group>"; };
+		DB3F97EE026559AA9F75E600 /* TestCoordinatorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestCoordinatorService.swift; sourceTree = "<group>"; };
 		DCF0604C6E5DF802B72B183B /* DirectTestViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectTestViewModel.swift; sourceTree = "<group>"; };
 		E2E0761C250CAC4DD469396F /* DomainTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainTypes.swift; sourceTree = "<group>"; };
 		E48C504D287FA5AED0C54875 /* CastSessionManaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastSessionManaging.swift; sourceTree = "<group>"; };
@@ -325,7 +331,10 @@
 		C7993567F5F09D0F4079F8EA /* Test */ = {
 			isa = PBXGroup;
 			children = (
+				70B46757D51ACAAF89065421 /* CoordinatorHealthCheck.swift */,
+				542523C727BA6311E53C172E /* LocalNetworkAuthorization.swift */,
 				4379DAD61BD6006EA06984C3 /* TestCoordinatorServer.swift */,
+				DB3F97EE026559AA9F75E600 /* TestCoordinatorService.swift */,
 			);
 			path = Test;
 			sourceTree = "<group>";
@@ -525,12 +534,14 @@
 				13D272F82E433A8D5236B9F0 /* CastViewModel.swift in Sources */,
 				7AEB83BFBB14D66545DC3A10 /* ConnectingView.swift in Sources */,
 				B6C0BD15F59B01E3C7C1A060 /* ContentView.swift in Sources */,
+				BF810A641336D2FECE7B81BD /* CoordinatorHealthCheck.swift in Sources */,
 				6568A260CA392EEF96F0E5F2 /* DirectTestView.swift in Sources */,
 				9E8673376115BC617D8FF18A /* DirectTestViewModel.swift in Sources */,
 				B051FBDC955A23668F8FECC8 /* DomainTypes.swift in Sources */,
 				C018FB7667BF02E1C4A98A1B /* ExtensionSignalingServer.swift in Sources */,
 				5A9C075BC4BA0F6C4702D540 /* HttpResponseBuilder.swift in Sources */,
 				8BE4900B308EB4EE4FE86017 /* LanAddress.swift in Sources */,
+				11807BBC948B514143136647 /* LocalNetworkAuthorization.swift in Sources */,
 				F78E1FF127C41803FCDAE4ED /* MainTabView.swift in Sources */,
 				319550A2B08632DE99CB1DB9 /* MdnsBrowser.swift in Sources */,
 				05BADE4B90438FC45B967841 /* MirrorCastView.swift in Sources */,
@@ -543,6 +554,7 @@
 				36A5F72EC646B3A1CACB2200 /* SignalingClient.swift in Sources */,
 				725E60965F30ADB56E0F1886 /* SignalingTransport.swift in Sources */,
 				ACB20A4AEF46E7ABE155AB33 /* TestCoordinatorServer.swift in Sources */,
+				A3A017BC590EFC7E8FF7DAAB /* TestCoordinatorService.swift in Sources */,
 				D5F5DDA3396D5EEC838EAB17 /* TestReceiverConfig.swift in Sources */,
 				FDC8C0A8C8897735965B5F33 /* UseCases.swift in Sources */,
 				994A82EF1DBE59CAE446D103 /* V2RepositoryProtocols.swift in Sources */,

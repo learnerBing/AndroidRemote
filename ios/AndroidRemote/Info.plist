@@ -22,13 +22,19 @@
 	<string>1</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_androidremote._tcp</string>
+		<string>_androidremote-test._tcp</string>
 		<string>_googlecast._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Find Chromecast and Google TV devices on your Wi-Fi network</string>
+	<string>Allow LAN access so the web receiver and Chromecast can connect to this iPhone for screen mirroring.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>

@@ -35,10 +35,20 @@ final class TestCoordinatorServer: @unchecked Sendable {
         lock.unlock()
     }
 
-    func start() throws {
+    func start(advertisedIP: String? = nil) throws {
         let params = NWParameters.tcp
         params.allowLocalEndpointReuse = true
+        params.includePeerToPeer = true
+
         let listener = try NWListener(using: params, on: NWEndpoint.Port(rawValue: port)!)
+
+        listener.service = NWListener.Service(
+            name: "AndroidRemote",
+            type: "_androidremote-test._tcp",
+            domain: nil,
+            txtRecord: advertisedIP.flatMap { "ip=\($0)".data(using: .utf8) }
+        )
+
         listener.newConnectionHandler = { [weak self] connection in
             self?.handle(connection: connection)
         }

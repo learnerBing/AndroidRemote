@@ -39,7 +39,11 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
 
         if session.transport == .castReceiver {
             extensionSignalingServer.registerSession(session.sessionId)
-            try extensionSignalingServer.start()
+            do {
+                try extensionSignalingServer.start()
+            } catch {
+                throw CastError.notConfigured
+            }
         }
 
 #if canImport(WebRTC)

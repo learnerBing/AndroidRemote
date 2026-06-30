@@ -33,9 +33,32 @@ struct DirectTestView: View {
                 header
 
                 stepCard(number: 1, title: "Open receiver on TV or laptop") {
+                    Text("On your Mac, serve locally (use your Mac IP — not 0.0.0.0):")
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.textSecondary)
+
+                    Text("python3 -m http.server 8080 --bind 0.0.0.0")
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .textSelection(.enabled)
+
+                    Text("Optional local receiver base URL (Mac IP):")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .padding(.top, 4)
+
+                    TextField("http://192.168.x.x:8080/test-receiver.html", text: $viewModel.localReceiverBaseURL)
+                        .font(.system(.caption, design: .monospaced))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .padding(10)
+                        .background(AppTheme.background)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+
                     Text("Open this URL in a browser on the same Wi‑Fi:")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.textSecondary)
+                        .padding(.top, 4)
 
                     Text(viewModel.receiverURLWithIP)
                         .font(.system(.caption, design: .monospaced))
@@ -79,10 +102,17 @@ struct DirectTestView: View {
                 .disabled(!viewModel.canLink)
                 .opacity(viewModel.canLink ? 1 : 0.5)
 
-                Text("No Chromecast or Cast device registration required.")
+                Text("No Chromecast required. Link Receiver before starting broadcast.")
                     .font(.caption)
                     .foregroundStyle(AppTheme.textSecondary)
                     .frame(maxWidth: .infinity)
+
+                if let hint = viewModel.localNetworkHint {
+                    Text(hint)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .frame(maxWidth: .infinity)
+                }
             }
             .padding(20)
         }
@@ -103,6 +133,11 @@ struct DirectTestView: View {
             Text("Start screen broadcast to begin mirroring")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.textSecondary)
+                .multilineTextAlignment(.center)
+
+            Text("You must tap Link Receiver first, then broadcast.")
+                .font(.caption)
+                .foregroundStyle(.orange)
                 .multilineTextAlignment(.center)
 
             BroadcastPickerRepresentable()
@@ -177,11 +212,27 @@ struct DirectTestView: View {
                     .fill(viewModel.coordinatorRunning ? AppTheme.success : .orange)
                     .frame(width: 8, height: 8)
                 Text(viewModel.coordinatorRunning
-                     ? "Pairing server running (port \(TestReceiverConfig.coordinatorPort))"
+                     ? "Pairing server on port \(TestReceiverConfig.coordinatorPort)"
                      : "Pairing server not running")
                     .font(.caption)
                     .foregroundStyle(AppTheme.textSecondary)
             }
+
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(viewModel.localHealthOK ? AppTheme.success : .orange)
+                    .frame(width: 8, height: 8)
+                Text(viewModel.localHealthOK
+                     ? "LAN server reachable at this IP"
+                     : "LAN server not reachable — check Local Network permission")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+
+            Button("Stop test server") { viewModel.stopTestServer() }
+                .font(.caption)
+                .foregroundStyle(AppTheme.textSecondary)
+                .padding(.top, 4)
         }
         .padding(16)
         .background(AppTheme.surface)

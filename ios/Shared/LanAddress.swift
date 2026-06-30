@@ -32,4 +32,13 @@ enum LanAddress {
         }
         return address
     }
+
+    static func isValidIPv4(_ value: String) -> Bool {
+        let parts = value.split(separator: ".")
+        guard parts.count == 4 else { return false }
+        return parts.allSatisfy { part in
+            guard let n = Int(part), n >= 0, n <= 255 else { return false }
+            return true
+        }
+    }
 }

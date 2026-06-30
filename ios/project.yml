@@ -65,10 +65,13 @@ targets:
         CFBundleDisplayName: AndroidRemote
         UILaunchScreen: {}
         ITSAppUsesNonExemptEncryption: false
-        NSLocalNetworkUsageDescription: "Find Chromecast and Google TV devices on your Wi-Fi network"
+        NSLocalNetworkUsageDescription: "Allow LAN access so the web receiver and Chromecast can connect to this iPhone for screen mirroring."
         NSBonjourServices:
           - _androidremote._tcp
+          - _androidremote-test._tcp
           - _googlecast._tcp
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
 
   BroadcastExtension:
     type: app-extension
@@ -91,6 +94,8 @@ targets:
       path: BroadcastExtension/Info.plist
       properties:
         CFBundleDisplayName: AndroidRemote Broadcast
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
         NSExtension:
           NSExtensionPointIdentifier: com.apple.broadcast-services-upload
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SampleHandler

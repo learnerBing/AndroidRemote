@@ -12,7 +12,7 @@ class SampleHandler: RPBroadcastSampleHandler {
             finishBroadcastWithError(NSError(
                 domain: "AndroidRemote",
                 code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "No paired session. Pair from the iPhone app first."]
+                userInfo: [NSLocalizedDescriptionKey: "No linked session. In the app Test tab, enter the receiver code and tap Link Receiver before starting broadcast."]
             ))
             return
         }
@@ -21,8 +21,18 @@ class SampleHandler: RPBroadcastSampleHandler {
             do {
                 try await webRtcEngine.start(session: snapshot)
                 isStreaming = true
+            } catch let error as CastError {
+                finishBroadcastWithError(NSError(
+                    domain: "AndroidRemote",
+                    code: 2,
+                    userInfo: [NSLocalizedDescriptionKey: error.localizedDescription]
+                ))
             } catch {
-                finishBroadcastWithError(error as NSError)
+                finishBroadcastWithError(NSError(
+                    domain: "AndroidRemote",
+                    code: 3,
+                    userInfo: [NSLocalizedDescriptionKey: "Broadcast failed: \(error.localizedDescription)"]
+                ))
             }
         }
     }
