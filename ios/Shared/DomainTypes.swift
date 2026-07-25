@@ -35,11 +35,6 @@ enum StreamCodec: String, Codable {
     case h264
 }
 
-enum ScreenVideoLayout: Equatable {
-    case portrait
-    case landscape
-}
-
 struct StreamConfig: Equatable {
     var width: Int = 1280
     var height: Int = 720
@@ -47,20 +42,17 @@ struct StreamConfig: Equatable {
     var maxBitrateKbps: Int = 2500
     var minBitrateKbps: Int = 800
     var codec: StreamCodec = .h264
-    /// ReplayKit upload extensions have ~50 MB; custom WebRTC audio adds overhead.
-    var includeAudio: Bool = true
 
     /// Chromecast / extension memory-safe default.
     static let castReceiver = StreamConfig()
 
-    /// Broadcast extension — 720p video-only (stable; audio disabled for extension memory).
+    /// Broadcast extension — 720p, video-only (audio disabled, see WebRtcBroadcastEngine).
     static let broadcastExtension = StreamConfig(
         width: 1280,
         height: 720,
         fps: 30,
         maxBitrateKbps: 2500,
-        minBitrateKbps: 800,
-        includeAudio: false
+        minBitrateKbps: 800
     )
 
     /// Direct Mac LAN relay — same Wi‑Fi, higher resolution and bitrate.
@@ -71,18 +63,6 @@ struct StreamConfig: Equatable {
         maxBitrateKbps: 8000,
         minBitrateKbps: 2500
     )
-
-    /// `width`×`height` is the landscape box; portrait swaps the long and short edges.
-    func outputDimensions(for layout: ScreenVideoLayout) -> (width: Int, height: Int) {
-        let longEdge = max(width, height)
-        let shortEdge = min(width, height)
-        switch layout {
-        case .portrait:
-            return (shortEdge, longEdge)
-        case .landscape:
-            return (longEdge, shortEdge)
-        }
-    }
 }
 
 enum ConnectionState: Equatable {

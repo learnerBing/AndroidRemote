@@ -6,7 +6,6 @@ class SampleHandler: RPBroadcastSampleHandler {
     private var signaling = SignalingClient()
     private var webRtcEngine: WebRtcBroadcastEngine?
     private var isStreaming = false
-    private let audioSampleQueue = DispatchQueue(label: "com.androidremote.broadcast.audio")
 
     override func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
         ARLog.info("Broadcast", "broadcastStarted")
@@ -107,16 +106,9 @@ class SampleHandler: RPBroadcastSampleHandler {
         case .video:
             guard isStreaming else { return }
             webRtcEngine?.pushVideoSample(sampleBuffer)
-        case .audioApp:
-            guard isStreaming else { return }
-            audioSampleQueue.async { [weak self, sampleBuffer] in
-                self?.webRtcEngine?.pushAppAudioSample(sampleBuffer)
-            }
-        case .audioMic:
-            guard isStreaming else { return }
-            audioSampleQueue.async { [weak self, sampleBuffer] in
-                self?.webRtcEngine?.pushMicAudioSample(sampleBuffer)
-            }
+        case .audioApp, .audioMic:
+            // Audio is disabled for now — video-only broadcast.
+            break
         @unknown default:
             break
         }
