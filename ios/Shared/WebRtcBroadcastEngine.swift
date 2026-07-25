@@ -43,6 +43,8 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
     private var offerSent = false
     private var iceGatheringContinuations: [CheckedContinuation<Void, Never>] = []
     private var outputFormatAdapted = false
+    private var pushedFrameCount = 0
+    private var statsTask: Task<Void, Never>?
     private let factoryQueue = DispatchQueue(label: "com.androidremote.webrtc")
 #endif
 
@@ -89,6 +91,9 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
         iceRepublishTask = nil
         offerSent = false
         outputFormatAdapted = false
+        pushedFrameCount = 0
+        statsTask?.cancel()
+        statsTask = nil
         factoryQueue.sync {
             iceGatheringContinuations.removeAll()
             peerConnection?.close()
@@ -121,21 +126,42 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
         // buffer as captured, unrotated, until that's root-caused.
         factoryQueue.async { [weak self] in
             guard let self, let capturer = self.videoCapturer, let source = self.videoSource else { return }
+            let width = CVPixelBufferGetWidth(pixelBuffer)
+            let height = CVPixelBufferGetHeight(pixelBuffer)
             if !self.outputFormatAdapted {
                 self.outputFormatAdapted = true
-                let width = CVPixelBufferGetWidth(pixelBuffer)
-                let height = CVPixelBufferGetHeight(pixelBuffer)
                 source.adaptOutputFormat(
                     toWidth: Int32(width),
                     height: Int32(height),
                     fps: Int32(self.streamConfig.fps)
                 )
-                ARLog.info("WebRTC", "adaptOutputFormat \(width)x\(height) (from first captured frame)")
+                ARLog.info(
+                    "WebRTC",
+                    "adaptOutputFormat \(width)x\(height) (from first captured frame) format=\(Self.fourCC(CVPixelBufferGetPixelFormatType(pixelBuffer)))"
+                )
+            }
+            self.pushedFrameCount += 1
+            if self.pushedFrameCount % 90 == 0 {
+                ARLog.info(
+                    "WebRTC",
+                    "pushVideoSample #\(self.pushedFrameCount) \(width)x\(height) format=\(Self.fourCC(CVPixelBufferGetPixelFormatType(pixelBuffer)))"
+                )
             }
             let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
             let frame = RTCVideoFrame(buffer: rtcBuffer, rotation: ._0, timeStampNs: timestampNs)
             source.capturer(capturer, didCapture: frame)
         }
+    }
+
+    private static func fourCC(_ type: OSType) -> String {
+        let bytes: [UInt8] = [
+            UInt8((type >> 24) & 0xff),
+            UInt8((type >> 16) & 0xff),
+            UInt8((type >> 8) & 0xff),
+            UInt8(type & 0xff),
+        ]
+        let scalars = bytes.map { (32...126).contains($0) ? Character(UnicodeScalar($0)) : "." }
+        return String(scalars)
     }
 
     private func startWebRtc(sessionId: String) async throws {
@@ -428,6 +454,37 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
         }
     }
 
+    private func startStatsLogging(sessionId: String) {
+        guard statsTask == nil else { return }
+        statsTask = Task { [weak self] in
+            while let self, !Task.isCancelled {
+                await self.logStatsOnce(sessionId: sessionId)
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+            }
+        }
+    }
+
+    private func logStatsOnce(sessionId: String) async {
+        guard let pc = factoryQueue.sync(execute: { self.peerConnection }) else { return }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            pc.statistics { report in
+                for stat in report.statistics.values where stat.type == "outbound-rtp" {
+                    let v = stat.values
+                    func field(_ key: String) -> String {
+                        v[key].map { "\($0)" } ?? "-"
+                    }
+                    ARLog.info(
+                        "WebRTC",
+                        "stats framesEncoded=\(field("framesEncoded")) framesSent=\(field("framesSent")) " +
+                        "bytesSent=\(field("bytesSent")) qualityLimitation=\(field("qualityLimitationReason")) " +
+                        "session=\(ARLog.sessionPrefix(sessionId))"
+                    )
+                }
+                continuation.resume()
+            }
+        }
+    }
+
     private func addRemoteCandidate(_ candidate: IceCandidate) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             factoryQueue.async { [weak self] in
@@ -466,6 +523,7 @@ extension WebRtcBroadcastEngine: RTCPeerConnectionDelegate {
         switch newState {
         case .connected, .completed:
             extensionSignalingServer.updateConnectionState(sessionId, state: "connected")
+            startStatsLogging(sessionId: sessionId)
             Task {
                 try? await signaling.updateSessionStatus(sessionId: sessionId, state: "connected")
             }

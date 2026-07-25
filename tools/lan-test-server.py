@@ -48,6 +48,17 @@ def sid_prefix(session_id: str) -> str:
     return session_id[:8] + "…" if len(session_id) >= 8 else session_id
 
 
+def sdp_video_summary(sdp: str) -> str:
+    lines = sdp.splitlines()
+    has_video = any(line.startswith("m=video") for line in lines)
+    if not has_video:
+        return "NO m=video LINE"
+    codecs = [line for line in lines if line.startswith("a=rtpmap") and any(c in line for c in ("H264", "VP8", "VP9", "AV1"))]
+    codec = codecs[0].split(" ", 1)[1] if codecs else "?"
+    direction = next((line[2:] for line in lines if line in ("a=sendonly", "a=recvonly", "a=sendrecv", "a=inactive")), "?")
+    return f"codec={codec} dir={direction}"
+
+
 def new_session() -> dict[str, Any]:
     return {
         "state": "waiting",
@@ -268,6 +279,7 @@ class LanRelayHandler(SimpleHTTPRequestHandler):
             type=sdp_type,
             session=sid_prefix(session_id),
             bytes=len(sdp),
+            video=sdp_video_summary(sdp),
             summary=session_summary(session_id),
         )
         self._json(200, {"ok": True})
@@ -506,6 +518,9 @@ def main() -> None:
     print("  offer_missing    browser polling, no offer yet (every 10 polls)")
     print("  offer_delivered  browser got offer → should show video soon")
     print("  iphone_log       iPhone/broadcast extension log line (no Xcode attach needed)")
+    print("                   look for 'stats framesEncoded=N' — N stuck at 0 means the encoder")
+    print("                   never produced a frame (capture/encoder problem, not network)")
+    print("  sdp_stored ... video=...   confirms m=video line + codec present in the offer/answer")
     print()
 
     server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)

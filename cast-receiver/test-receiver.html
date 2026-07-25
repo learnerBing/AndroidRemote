@@ -62,8 +62,9 @@
     </p>
   </div>
   <div id="video-container">
-    <video id="remote-video" autoplay playsinline></video>
+    <video id="remote-video" autoplay playsinline muted></video>
     <audio id="remote-audio" autoplay></audio>
+    <div id="debug-overlay" style="position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.65);color:#7ee787;font:11px/1.4 monospace;padding:6px 8px;white-space:pre-wrap;z-index:10;pointer-events:none;"></div>
   </div>
 
   <script>
@@ -79,6 +80,7 @@
     let remoteStream = null;
     let audioStarted = false;
     let isTeardown = false;
+    let statsTimer = null;
 
     const pairingCode = generatePairingCode();
     document.getElementById('code').textContent = pairingCode;
@@ -143,6 +145,11 @@
         clearInterval(statusPollTimer);
         statusPollTimer = null;
       }
+      if (statsTimer) {
+        clearInterval(statsTimer);
+        statsTimer = null;
+      }
+      document.getElementById('debug-overlay').textContent = '';
       seenSenderIce.clear();
       if (peerConnection) {
         peerConnection.ontrack = null;
@@ -265,13 +272,19 @@
 
       video.srcObject = remoteStream;
       audio.srcObject = remoteStream;
-      video.muted = false;
+      // Video track never carries audio (broadcast is video-only for now) — keep it muted so
+      // the browser's autoplay policy doesn't block play() waiting for a user gesture. An
+      // unmuted <video>.play() without prior interaction rejects with NotAllowedError and the
+      // element just sits paused (black) even while WebRTC keeps decoding frames underneath —
+      // that mismatch (framesDecoded climbing in getStats() but a black <video>) is exactly
+      // what this caused.
+      video.muted = true;
       audio.muted = false;
       video.playsInline = true;
 
       if (track.kind === 'audio' && !audioStarted) {
         audioStarted = true;
-        audio.play().catch(console.warn);
+        audio.play().catch((e) => console.warn('audio.play() rejected', e));
         setStatus('Receiving audio…');
       }
       if (track.kind === 'video') {
@@ -280,11 +293,52 @@
           setStatus('Video playing');
         };
         track.onmute = () => console.warn('video track muted');
-        video.play().catch(console.warn);
+        video.play().catch((e) => console.warn('video.play() rejected', e));
         showVideo();
         watchVideoLayout(video);
       }
       track.onended = () => teardownWebRtc('Stream ended');
+    }
+
+    function startStatsLogging() {
+      if (statsTimer) clearInterval(statsTimer);
+      let lastBytes = null;
+      let lastTime = null;
+      statsTimer = setInterval(async () => {
+        if (!peerConnection) return;
+        let report;
+        try {
+          report = await peerConnection.getStats();
+        } catch (e) {
+          console.warn('getStats failed', e);
+          return;
+        }
+        const lines = [];
+        report.forEach((r) => {
+          if (r.type === 'inbound-rtp' && r.kind === 'video') {
+            const now = performance.now();
+            let bitrateKbps = 0;
+            if (lastBytes !== null && lastTime !== null) {
+              bitrateKbps = Math.round(((r.bytesReceived - lastBytes) * 8) / ((now - lastTime) / 1000) / 1000);
+            }
+            lastBytes = r.bytesReceived;
+            lastTime = now;
+            const line =
+              `video: framesDecoded=${r.framesDecoded ?? '?'} framesReceived=${r.framesReceived ?? '?'} ` +
+              `framesDropped=${r.framesDropped ?? '?'} frame=${r.frameWidth ?? '?'}x${r.frameHeight ?? '?'} ` +
+              `bytesReceived=${r.bytesReceived ?? '?'} bitrate=${bitrateKbps}kbps ` +
+              `packetsLost=${r.packetsLost ?? '?'} pliCount=${r.pliCount ?? '?'} codec=${r.codecId ?? '?'}`;
+            console.log('[stats]', line);
+            lines.push(line);
+          }
+          if (r.type === 'candidate-pair' && r.state === 'succeeded') {
+            lines.push(`ice: localCandidateType=${r.localCandidateType ?? '?'} remoteCandidateType=${r.remoteCandidateType ?? '?'} currentRoundTripTime=${r.currentRoundTripTime ?? '?'}`);
+          }
+        });
+        if (lines.length) {
+          document.getElementById('debug-overlay').textContent = lines.join('\n');
+        }
+      }, 2000);
     }
 
     function watchVideoLayout(video) {
@@ -369,6 +423,7 @@
 
       startIcePolling();
       startStatusPolling();
+      startStatsLogging();
     }
 
     let webRtcWatchTimer = null;
