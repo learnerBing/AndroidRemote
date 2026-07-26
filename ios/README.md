@@ -13,6 +13,8 @@ SwiftUI app for casting iPhone screen to **Chromecast / Google TV** via WebRTC (
    static let receiverAppId = "YOUR_CAST_APP_ID"
    ```
 
+Registered app for this project: `AndroidReceiver` (App ID `02DE7020`, Custom Receiver, unpublished — receiver URL `https://learnerbing.github.io/AndroidRemote/`). Unpublished apps only launch on devices authorized in the Cast console.
+
 ### 2. Open in Xcode
 
 ```bash

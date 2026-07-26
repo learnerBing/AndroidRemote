@@ -14,10 +14,12 @@ final class CastDeviceDiscovery: DeviceDiscoveryRepository {
     }
 
     func startBrowsing() async {
+        ARLog.info("Cast", "CastDeviceDiscovery.startBrowsing sdkAvailable=\(castSession.isCastSdkAvailable())")
         castSession.startDiscovery()
     }
 
     func stopBrowsing() {
+        ARLog.info("Cast", "CastDeviceDiscovery.stopBrowsing")
         castSession.stopDiscovery()
     }
 }
@@ -46,17 +48,20 @@ final class CompositeDeviceDiscovery: DeviceDiscoveryRepository {
     }
 
     func startBrowsing() async {
+        ARLog.info("Discovery", "CompositeDeviceDiscovery.startBrowsing")
         await castDiscovery.startBrowsing()
         await mdnsDiscovery.startBrowsing()
 
         Task {
             for await devices in castDiscovery.discoveredDevices {
+                ARLog.info("Discovery", "cast devices update: \(devices.map(\.name))")
                 castDevices = devices
                 publish()
             }
         }
         Task {
             for await devices in mdnsDiscovery.discoveredDevices {
+                ARLog.info("Discovery", "mDNS native devices update: \(devices.map(\.name))")
                 nativeDevices = devices.map {
                     CastDevice(id: $0.id, name: $0.name, host: $0.host, port: $0.port, kind: .nativeTv)
                 }
@@ -66,13 +71,16 @@ final class CompositeDeviceDiscovery: DeviceDiscoveryRepository {
     }
 
     func stopBrowsing() {
+        ARLog.info("Discovery", "CompositeDeviceDiscovery.stopBrowsing")
         castDiscovery.stopBrowsing()
         mdnsDiscovery.stopBrowsing()
         continuation?.finish()
     }
 
     private func publish() {
-        continuation?.yield(castDevices + nativeDevices)
+        let combined = castDevices + nativeDevices
+        ARLog.info("Discovery", "publishing \(combined.count) device(s): \(combined.map(\.name))")
+        continuation?.yield(combined)
     }
 }
 
@@ -85,6 +93,7 @@ final class CastSessionManager: NSObject, CastSessionManaging, @unchecked Sendab
     private let queue = DispatchQueue(label: "com.androidremote.cast-session")
     private let signalingChannel: GCKGenericChannel
     private var sessionStartContinuation: CheckedContinuation<Void, Error>?
+    private var diagnosticGeneration = 0
 
     private override init() {
         signalingChannel = GCKGenericChannel(namespace: CastConfig.customChannel)
@@ -95,7 +104,7 @@ final class CastSessionManager: NSObject, CastSessionManaging, @unchecked Sendab
     var discoveredDevices: AsyncStream<[CastDevice]> {
         AsyncStream { continuation in
             self.deviceContinuation = continuation
-            continuation.yield(self.currentDevices())
+            continuation.yield(self.onMain { self.currentDevices() })
         }
     }
 
@@ -104,28 +113,77 @@ final class CastSessionManager: NSObject, CastSessionManaging, @unchecked Sendab
     }
 
     func isCastSdkAvailable() -> Bool {
-        CastConfig.receiverAppId != "YOUR_CAST_APP_ID"
+        CastConfig.isConfigured
     }
 
     func startDiscovery() {
-        guard isCastSdkAvailable() else { return }
-        let discoveryManager = GCKCastContext.sharedInstance().discoveryManager
-        discoveryManager.add(self)
-        discoveryManager.startDiscovery()
-        publishDevices()
+        guard isCastSdkAvailable() else {
+            ARLog.warn("Cast", "startDiscovery skipped — Cast SDK not configured")
+            return
+        }
+        DispatchQueue.main.async {
+            let discoveryManager = GCKCastContext.sharedInstance().discoveryManager
+            discoveryManager.add(self)
+            discoveryManager.startDiscovery()
+            ARLog.info("Cast", "discoveryManager.startDiscovery() called, current deviceCount=\(discoveryManager.deviceCount)")
+            self.publishDevices()
+            self.diagnosticGeneration += 1
+            self.scheduleNoDeviceDiagnostic()
+        }
     }
 
     func stopDiscovery() {
         guard isCastSdkAvailable() else { return }
-        let discoveryManager = GCKCastContext.sharedInstance().discoveryManager
-        discoveryManager.stopDiscovery()
-        discoveryManager.remove(self)
+        DispatchQueue.main.async {
+            let discoveryManager = GCKCastContext.sharedInstance().discoveryManager
+            discoveryManager.stopDiscovery()
+            discoveryManager.remove(self)
+            self.diagnosticGeneration += 1
+            ARLog.info("Cast", "discoveryManager.stopDiscovery() called")
+        }
+    }
+
+    /// No devices found shortly after starting discovery almost always means: iOS denied the
+    /// "Local Network" permission prompt, the phone/TV are on different Wi‑Fi networks or subnets
+    /// (guest network / band-steering / client isolation), or the receiver app is unpublished and
+    /// this Cast device hasn't been added as an authorized test device in the Cast console.
+    private func scheduleNoDeviceDiagnostic() {
+        let generation = diagnosticGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            guard let self, self.diagnosticGeneration == generation else { return }
+            let count = GCKCastContext.sharedInstance().discoveryManager.deviceCount
+            if count == 0 {
+                ARLog.warn(
+                    "Cast",
+                    "no Cast devices found after 8s — check: (1) iOS Settings > AndroidRemote > Local Network is ON, "
+                    + "(2) iPhone and TV are on the SAME Wi‑Fi network/band, "
+                    + "(3) this Chromecast/Google TV is added as an authorized test device for the unpublished receiver app 02DE7020 in the Cast console."
+                )
+            }
+        }
+    }
+
+    /// GCKCastContext APIs assert main-thread-only; the discovery call chain from
+    /// `CastViewModel` passes through several non-`@MainActor` async types that can
+    /// resume off the main thread, so reads/writes into the SDK must hop explicitly.
+    private func onMain<T>(_ work: @escaping () -> T) -> T {
+        if Thread.isMainThread {
+            return work()
+        }
+        return DispatchQueue.main.sync(execute: work)
     }
 
     func connect(to device: CastDevice) async throws {
-        guard isCastSdkAvailable() else { throw CastError.castSdkUnavailable }
-        guard let gckDevice = devicesById[device.id] else { throw CastError.castSessionFailed }
+        guard isCastSdkAvailable() else {
+            ARLog.error("Cast", "connect(\(device.name)) failed — Cast SDK not configured")
+            throw CastError.castSdkUnavailable
+        }
+        guard let gckDevice = devicesById[device.id] else {
+            ARLog.error("Cast", "connect(\(device.name)) failed — device id \(device.id) not in devicesById (stale selection?)")
+            throw CastError.castSessionFailed
+        }
         queue.sync { lastPairingCode = nil }
+        ARLog.info("Cast", "connect: starting session with \(device.name)")
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             sessionStartContinuation = continuation
@@ -133,6 +191,7 @@ final class CastSessionManager: NSObject, CastSessionManaging, @unchecked Sendab
                 let sessionManager = GCKCastContext.sharedInstance().sessionManager
                 sessionManager.add(self)
                 if !sessionManager.startSession(with: gckDevice) {
+                    ARLog.error("Cast", "sessionManager.startSession(with:) returned false for \(device.name)")
                     self.sessionStartContinuation = nil
                     continuation.resume(throwing: CastError.castSessionFailed)
                 }
@@ -164,7 +223,9 @@ final class CastSessionManager: NSObject, CastSessionManaging, @unchecked Sendab
     }
 
     private func publishDevices() {
-        deviceContinuation?.yield(currentDevices())
+        let devices = currentDevices()
+        ARLog.info("Cast", "publishDevices: \(devices.count) device(s) — \(devices.map(\.name))")
+        deviceContinuation?.yield(devices)
     }
 
     private func currentDevices() -> [CastDevice] {
@@ -187,9 +248,11 @@ final class CastSessionManager: NSObject, CastSessionManaging, @unchecked Sendab
     private func handleIncomingText(_ text: String) {
         guard let data = text.data(using: .utf8),
               let message = try? JSONDecoder().decode(CastSignalingMessage.self, from: data) else {
+            ARLog.warn("Cast", "handleIncomingText: undecodable message \(text)")
             return
         }
         if message.type == "pairing_code", let code = message.code {
+            ARLog.info("Cast", "received pairing_code from receiver")
             queue.sync { lastPairingCode = code }
         }
     }
@@ -197,6 +260,7 @@ final class CastSessionManager: NSObject, CastSessionManaging, @unchecked Sendab
 
 extension CastSessionManager: GCKDiscoveryManagerListener {
     func didUpdateDeviceList() {
+        ARLog.info("Cast", "didUpdateDeviceList fired")
         publishDevices()
     }
 }
@@ -204,6 +268,7 @@ extension CastSessionManager: GCKDiscoveryManagerListener {
 extension CastSessionManager: GCKSessionManagerListener {
     func sessionManager(_ sessionManager: GCKSessionManager, didStart session: GCKSession) {
         guard let castSession = session as? GCKCastSession else { return }
+        ARLog.info("Cast", "session didStart with \(session.device.friendlyName ?? "?")")
         attachSignalingChannel(to: castSession)
         sessionStartContinuation?.resume()
         sessionStartContinuation = nil
@@ -214,11 +279,13 @@ extension CastSessionManager: GCKSessionManagerListener {
         didFailToStart session: GCKSession,
         withError error: Error
     ) {
+        ARLog.error("Cast", "session didFailToStart: \(error.localizedDescription)")
         sessionStartContinuation?.resume(throwing: error)
         sessionStartContinuation = nil
     }
 
     func sessionManager(_ sessionManager: GCKSessionManager, didEnd session: GCKSession, withError error: Error?) {
+        ARLog.info("Cast", "session didEnd" + (error.map { " error=\($0.localizedDescription)" } ?? ""))
         if let castSession = session as? GCKCastSession {
             castSession.remove(signalingChannel)
         }

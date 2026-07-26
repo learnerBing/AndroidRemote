@@ -111,12 +111,14 @@ Re-deploys automatically when you push changes under `cast-receiver/`.
 
 Allow 5–15 minutes after saving, then reboot the Cast device once.
 
+Registered app for this project: `AndroidReceiver` (App ID `02DE7020`, Custom Receiver, unpublished, receiver URL `https://learnerbing.github.io/AndroidRemote/`). Unpublished apps only launch on devices authorized in the Cast console.
+
 ### 4. Configure iOS app
 
 `ios/Shared/CastConfig.swift`:
 
 ```swift
-static let receiverAppId = "YOUR_CAST_APP_ID"
+static let receiverAppId = "02DE7020"
 ```
 
 ```bash

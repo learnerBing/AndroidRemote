@@ -46,9 +46,11 @@ final class CastViewModel: ObservableObject {
 
     func onAppear() {
         castSdkReady = castSession.isCastSdkAvailable()
+        ARLog.info("Cast", "MirrorCastView.onAppear castSdkReady=\(castSdkReady)")
         discoveryTask = Task {
             await discoverDevices.start()
             for await found in discoverDevices.execute() {
+                ARLog.info("Cast", "CastViewModel received \(found.count) device(s): \(found.map(\.name))")
                 devices = found
                 if connectionState == .discovering || connectionState == .idle {
                     connectionState = found.isEmpty ? .discovering : .idle
@@ -59,6 +61,7 @@ final class CastViewModel: ObservableObject {
     }
 
     func onDisappear() {
+        ARLog.info("Cast", "MirrorCastView.onDisappear")
         discoveryTask?.cancel()
         statusTask?.cancel()
         pairingPollTask?.cancel()
@@ -66,6 +69,7 @@ final class CastViewModel: ObservableObject {
     }
 
     func selectDevice(_ device: CastDevice) {
+        ARLog.info("Cast", "selectDevice \(device.name) (\(device.kind))")
         selectedDevice = device
         connectionState = .pairing
         receivedTvCode = nil
@@ -80,12 +84,14 @@ final class CastViewModel: ObservableObject {
 
         connectionState = .connecting
         errorMessage = nil
+        ARLog.info("Cast", "startCast device=\(device.name) isChromecast=\(device.isChromecast)")
 
         Task {
             do {
                 if device.isChromecast {
                     let code = pairingCode.isEmpty ? (receivedTvCode ?? "") : pairingCode
                     let session = try await wiredPairCastDevice.execute(device: device, pairingCode: code)
+                    ARLog.info("Cast", "startCast succeeded, session=\(ARLog.sessionPrefix(session.sessionId))")
                     pairedTVName = device.name
                     pairingCode = session.pairingCode
                     startStatusPolling()
@@ -97,6 +103,7 @@ final class CastViewModel: ObservableObject {
                 }
             } catch {
                 let message = error.localizedDescription
+                ARLog.error("Cast", "startCast failed device=\(device.name): \(message)")
                 connectionState = selectedDevice != nil ? .pairing : .idle
                 errorMessage = message
                 showError = true

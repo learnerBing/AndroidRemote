@@ -18,7 +18,9 @@ final class MdnsBrowser: DeviceDiscoveryRepository {
         let descriptor = NWBrowser.Descriptor.bonjour(type: "_androidremote._tcp", domain: nil)
         browser = NWBrowser(for: descriptor, using: .tcp)
         browser.stateUpdateHandler = { state in
-            if case .failed = state {
+            ARLog.info("MDNS", "browser state: \(state)")
+            if case let .failed(error) = state {
+                ARLog.error("MDNS", "browser failed: \(error.localizedDescription)")
                 self.continuation?.yield([])
             }
         }
@@ -28,10 +30,12 @@ final class MdnsBrowser: DeviceDiscoveryRepository {
     }
 
     func startBrowsing() async {
+        ARLog.info("MDNS", "startBrowsing _androidremote._tcp")
         browser.start(queue: .main)
     }
 
     func stopBrowsing() {
+        ARLog.info("MDNS", "stopBrowsing")
         browser.cancel()
         continuation?.finish()
     }

@@ -24,3 +24,7 @@ android-tv/.idea/
 # Env / secrets
 .env
 .env.*
+
+# Python
+__pycache__/
+*.pyc

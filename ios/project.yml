@@ -75,10 +75,12 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
-        NSLocalNetworkUsageDescription: "Allow LAN access so the Mac relay can connect to this iPhone for screen recording."
+        NSLocalNetworkUsageDescription: "AndroidRemote uses your local network to find Chromecast / Google TV devices and to connect the Mac relay for screen recording."
         NSMicrophoneUsageDescription: "Microphone audio is mixed into the screen recording when you enable it in the broadcast picker."
         NSBonjourServices:
           - _androidremote-test._tcp
+          - _googlecast._tcp
+          - _02DE7020._googlecast._tcp
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
 

@@ -29,10 +29,13 @@
 	</dict>
 	<key>NSBonjourServices</key>
 	<array>
+		<string>_androidremote._tcp</string>
 		<string>_androidremote-test._tcp</string>
+		<string>_googlecast._tcp</string>
+		<string>_02DE7020._googlecast._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Allow LAN access so the Mac relay can connect to this iPhone for screen recording.</string>
+	<string>AndroidRemote uses your local network to find Chromecast / Google TV devices and to connect the Mac relay for screen recording.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Microphone audio is mixed into the screen recording when you enable it in the broadcast picker.</string>
 	<key>UILaunchScreen</key>
