@@ -116,7 +116,10 @@
     }
 
     function sendCastMessage(payload) {
-      context.sendCustomMessage(CUSTOM_CHANNEL, payload);
+      // senderId is the 2nd positional arg (namespace, senderId, message).
+      // Passing `undefined` broadcasts to all connected senders — there's normally
+      // just the one iPhone, so this is the simplest correct call.
+      context.sendCustomMessage(CUSTOM_CHANNEL, undefined, payload);
     }
 
     function showVideo() {
