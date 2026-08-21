@@ -99,14 +99,19 @@ final class ExtensionSignalingServer: @unchecked Sendable {
         }
         let headerText = raw[raw.startIndex..<headerEnd.lowerBound]
         let bodySoFar = raw[headerEnd.upperBound...]
-
-        let contentLength = headerText
-            .split(separator: "\n")
-            .first { $0.lowercased().hasPrefix("content-length:") }
-            .flatMap { Int($0.split(separator: ":", maxSplits: 1)[1].trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0
+        let contentLength = parseContentLength(headerText)
 
         guard bodySoFar.utf8.count >= contentLength else { return nil }
         return raw
+    }
+
+    /// Parses the Content-Length header value out of raw header text (lines still carry their
+    /// trailing "\r" — `.whitespacesAndNewlines` strips that along with ordinary spaces).
+    private func parseContentLength(_ headerText: Substring) -> Int {
+        headerText
+            .split(separator: "\n")
+            .first { $0.lowercased().hasPrefix("content-length:") }
+            .flatMap { Int($0.split(separator: ":", maxSplits: 1)[1].trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0
     }
 
     private func route(_ raw: String) -> String {
@@ -129,11 +134,19 @@ final class ExtensionSignalingServer: @unchecked Sendable {
             return HttpResponseBuilder.response(status: 204, body: "", contentType: "text/plain", cors: true)
         }
 
+        // Cap the body to exactly Content-Length bytes. The client (URLSession.shared, shared
+        // across every SignalingClient call) can dispatch its next request onto the same
+        // connection before this one is fully torn down despite our "Connection: close" —
+        // taking "everything remaining in the buffer" as the body then appends the start of
+        // that next request, and JSONDecoder rejects the trailing garbage as invalid JSON.
         let body: String
-        if let emptyIndex = raw.range(of: "\r\n\r\n") {
-            body = String(raw[emptyIndex.upperBound...])
-        } else if let emptyIndex = raw.range(of: "\n\n") {
-            body = String(raw[emptyIndex.upperBound...])
+        if let headerEnd = raw.range(of: "\r\n\r\n") ?? raw.range(of: "\n\n") {
+            let headerText = raw[raw.startIndex..<headerEnd.lowerBound]
+            let contentLength = parseContentLength(headerText)
+            let rawBody = raw[headerEnd.upperBound...]
+            body = contentLength > 0
+                ? String(decoding: Array(rawBody.utf8.prefix(contentLength)), as: UTF8.self)
+                : String(rawBody)
         } else {
             body = ""
         }
@@ -177,9 +190,20 @@ final class ExtensionSignalingServer: @unchecked Sendable {
     }
 
     private func handleSdpPost(body: String) -> String {
-        guard let message = try? JSONDecoder().decode(ARCPSdpMessage.self, from: Data(body.utf8)) else {
+        do {
+            let message = try JSONDecoder().decode(ARCPSdpMessage.self, from: Data(body.utf8))
+            return respondToSdpPost(message)
+        } catch {
+            ARLog.error(
+                "Signaling",
+                "POST /sdp decode failed: \(error.localizedDescription) bytes=\(body.utf8.count) " +
+                "prefix=\(body.prefix(80)) suffix=\(body.suffix(80))"
+            )
             return HttpResponseBuilder.response(status: 400, body: "Invalid JSON", contentType: "text/plain", cors: true)
         }
+    }
+
+    private func respondToSdpPost(_ message: ARCPSdpMessage) -> String {
         lock.lock()
         var session = sessions[message.sessionId] ?? SessionState()
         if message.type == "offer" {
@@ -216,7 +240,15 @@ final class ExtensionSignalingServer: @unchecked Sendable {
     }
 
     private func handleIcePost(body: String, query: [String: String]) -> String {
-        guard let message = try? JSONDecoder().decode(ARCPIceMessage.self, from: Data(body.utf8)) else {
+        let message: ARCPIceMessage
+        do {
+            message = try JSONDecoder().decode(ARCPIceMessage.self, from: Data(body.utf8))
+        } catch {
+            ARLog.error(
+                "Signaling",
+                "POST /ice decode failed: \(error.localizedDescription) bytes=\(body.utf8.count) " +
+                "prefix=\(body.prefix(80)) suffix=\(body.suffix(80))"
+            )
             return HttpResponseBuilder.response(status: 400, body: "Invalid JSON", contentType: "text/plain", cors: true)
         }
         let side = query["side"] ?? "sender"
