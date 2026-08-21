@@ -91,7 +91,24 @@ struct ObserveCastStatusUseCase {
         ARLog.info("Test", "polling status session=\(ARLog.sessionPrefix(snapshot.sessionId))")
         var lastStatus = ""
         for i in 0..<(timeoutSeconds * 2) {
-            let status = try await signaling.pollStatus(sessionId: snapshot.sessionId)
+            // pollStatus only treats a non-200 HTTP response as "still waiting" — a thrown
+            // network error (e.g. Connection refused, which is *expected* on early attempts
+            // since the extension's signaling server doesn't exist until the user taps the
+            // system broadcast picker, a manual step that can take several seconds) used to
+            // propagate straight out of this whole loop on the very first iteration, killing the
+            // one-shot polling Task in CastViewModel for good — nothing was left polling once the
+            // extension actually came up, so the first cast attempt got permanently stuck while a
+            // retry "worked" only because the extension was already running from the first try.
+            let status: String
+            do {
+                status = try await signaling.pollStatus(sessionId: snapshot.sessionId)
+            } catch {
+                if i == 0 || i % 20 == 19 {
+                    ARLog.info("Test", "still waiting (poll error: \(error.localizedDescription)) poll=\(i + 1)")
+                }
+                try await Task.sleep(nanoseconds: 500_000_000)
+                continue
+            }
             if status != lastStatus {
                 ARLog.info("Test", "status=\(status) session=\(ARLog.sessionPrefix(snapshot.sessionId))")
                 lastStatus = status
