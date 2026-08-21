@@ -57,6 +57,10 @@ enum CastError: LocalizedError {
     case castSdkUnavailable
     case castSessionFailed
     case lanAddressUnavailable
+    /// A signaling HTTP request (SDP/status) against the bound relay — LAN test server *or* the
+    /// extension's own self-hosted Cast-mode server — failed. Carries the actual path/host/status
+    /// so this never gets read as the unrelated hardcoded `.discoveryFailed` LAN-relay copy again.
+    case signalingRequestFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -69,6 +73,7 @@ enum CastError: LocalizedError {
         case .castSdkUnavailable: return "Google Cast SDK not linked — resolve SPM packages in Xcode"
         case .castSessionFailed: return "Could not start Cast session"
         case .lanAddressUnavailable: return "Could not determine iPhone Wi‑Fi address"
+        case .signalingRequestFailed(let detail): return "Signaling request failed: \(detail)"
         }
     }
 }

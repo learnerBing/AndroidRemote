@@ -105,7 +105,7 @@ final class SignalingClient: @unchecked Sendable {
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
             ARLog.error("Signaling", "POST /sdp type=\(type) session=\(ARLog.sessionPrefix(sessionId)) HTTP \(code) url=\(url.absoluteString)")
-            throw CastError.discoveryFailed
+            throw CastError.signalingRequestFailed("POST /sdp HTTP \(code) \(url.absoluteString)")
         }
     }
 
@@ -200,7 +200,7 @@ final class SignalingClient: @unchecked Sendable {
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
             ARLog.error("Signaling", "POST /status failed HTTP \(code) session=\(ARLog.sessionPrefix(sessionId))")
-            throw CastError.discoveryFailed
+            throw CastError.signalingRequestFailed("POST /status HTTP \(code) \(url.absoluteString)")
         }
     }
 

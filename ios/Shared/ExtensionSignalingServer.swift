@@ -140,6 +140,11 @@ final class ExtensionSignalingServer: @unchecked Sendable {
         // taking "everything remaining in the buffer" as the body then appends the start of
         // that next request, and JSONDecoder rejects the trailing garbage as invalid JSON.
         let body: String
+        // Diagnostic snapshot of what we actually parsed off the wire for this request, so a
+        // decode failure below can tell us whether Content-Length was missing/zero (client didn't
+        // declare a body length we understood) vs. present-but-body-truncated (our own buffering
+        // is still short) instead of guessing from bytes=0 alone.
+        let requestDiagnostic: String
         if let headerEnd = raw.range(of: "\r\n\r\n") ?? raw.range(of: "\n\n") {
             let headerText = raw[raw.startIndex..<headerEnd.lowerBound]
             let contentLength = parseContentLength(headerText)
@@ -147,8 +152,11 @@ final class ExtensionSignalingServer: @unchecked Sendable {
             body = contentLength > 0
                 ? String(decoding: Array(rawBody.utf8.prefix(contentLength)), as: UTF8.self)
                 : String(rawBody)
+            requestDiagnostic = "contentLength=\(contentLength) rawBodyBytes=\(rawBody.utf8.count) " +
+                "headers=\(headerText.replacingOccurrences(of: "\r\n", with: "|"))"
         } else {
             body = ""
+            requestDiagnostic = "no header terminator found in \(raw.utf8.count) raw bytes"
         }
 
         switch (method, path) {
@@ -159,11 +167,11 @@ final class ExtensionSignalingServer: @unchecked Sendable {
         case ("GET", "/sdp"):
             return handleAnswerGet(query: query)
         case ("POST", "/sdp"):
-            return handleSdpPost(body: body)
+            return handleSdpPost(body: body, diagnostic: requestDiagnostic)
         case ("GET", "/ice"):
             return handleIceGet(query: query)
         case ("POST", "/ice"):
-            return handleIcePost(body: body, query: query)
+            return handleIcePost(body: body, query: query, diagnostic: requestDiagnostic)
         case ("GET", "/status"):
             return handleStatus(query: query)
         case ("POST", "/status"):
@@ -191,7 +199,7 @@ final class ExtensionSignalingServer: @unchecked Sendable {
         return HttpResponseBuilder.json(message, cors: true)
     }
 
-    private func handleSdpPost(body: String) -> String {
+    private func handleSdpPost(body: String, diagnostic: String) -> String {
         do {
             let message = try JSONDecoder().decode(ARCPSdpMessage.self, from: Data(body.utf8))
             return respondToSdpPost(message)
@@ -199,7 +207,7 @@ final class ExtensionSignalingServer: @unchecked Sendable {
             ARLog.error(
                 "Signaling",
                 "POST /sdp decode failed: \(error.localizedDescription) bytes=\(body.utf8.count) " +
-                "prefix=\(body.prefix(80)) suffix=\(body.suffix(80))"
+                "prefix=\(body.prefix(80)) suffix=\(body.suffix(80)) [\(diagnostic)]"
             )
             return HttpResponseBuilder.response(status: 400, body: "Invalid JSON", contentType: "text/plain", cors: true)
         }
@@ -241,7 +249,7 @@ final class ExtensionSignalingServer: @unchecked Sendable {
         return HttpResponseBuilder.json(ARCPIceListResponse(candidates: drained), cors: true)
     }
 
-    private func handleIcePost(body: String, query: [String: String]) -> String {
+    private func handleIcePost(body: String, query: [String: String], diagnostic: String) -> String {
         let message: ARCPIceMessage
         do {
             message = try JSONDecoder().decode(ARCPIceMessage.self, from: Data(body.utf8))
@@ -249,7 +257,7 @@ final class ExtensionSignalingServer: @unchecked Sendable {
             ARLog.error(
                 "Signaling",
                 "POST /ice decode failed: \(error.localizedDescription) bytes=\(body.utf8.count) " +
-                "prefix=\(body.prefix(80)) suffix=\(body.suffix(80))"
+                "prefix=\(body.prefix(80)) suffix=\(body.suffix(80)) [\(diagnostic)]"
             )
             return HttpResponseBuilder.response(status: 400, body: "Invalid JSON", contentType: "text/plain", cors: true)
         }
