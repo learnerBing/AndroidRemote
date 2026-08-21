@@ -15,6 +15,12 @@ enum CastBootstrap {
         // App drives discovery itself (no GCKUICastButton), so start it immediately rather than
         // waiting for a cast-button tap that never happens.
         options.startDiscoveryAfterFirstTapOnCastButton = false
+        // Defaults to YES, which suspends the Cast session — and fires SENDER_DISCONNECTED on
+        // the receiver — the instant the user backgrounds the main app. That's exactly what
+        // happens when screen mirroring is working as intended: the Broadcast Extension keeps
+        // running and streaming independently of the main app's lifecycle (see CLAUDE.md), so
+        // backgrounding to use another app mid-mirror is completely normal, not a teardown signal.
+        options.suspendSessionsWhenBackgrounded = false
         GCKCastContext.setSharedInstanceWith(options)
         let filter = GCKLoggerFilter()
         filter.minimumLevel = .verbose

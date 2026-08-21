@@ -306,7 +306,17 @@
     }
 
     context.addEventListener(cast.framework.system.EventType.SENDER_DISCONNECTED, () => {
-      logLine('sender disconnected — reloading');
+      // The Cast *control* channel (used only for pairing_code/session_prepare) drops whenever
+      // the main app backgrounds — normal and expected, since the Broadcast Extension keeps
+      // streaming independently of the main app's lifecycle. The already-negotiated WebRTC media
+      // connection doesn't depend on this channel at all once established, so don't nuke a
+      // working stream just because the sender's control connection dropped.
+      const mediaIsLive = peerConnection && peerConnection.connectionState === 'connected';
+      if (mediaIsLive) {
+        logLine('sender disconnected — media still live, leaving WebRTC connected');
+        return;
+      }
+      logLine('sender disconnected — no active media, tearing down and reloading');
       if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
