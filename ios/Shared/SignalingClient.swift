@@ -110,7 +110,25 @@ final class SignalingClient: @unchecked Sendable {
 
     // MARK: - ICE
 
+    /// The loopback connection to the extension's own embedded server (Cast mode posts to its
+    /// own IP) has proven flaky enough in practice that individual POSTs fail outright fairly
+    /// often — sendOffer already tolerates this with an 8-attempt retry and reliably gets
+    /// through. sendIceCandidate previously had none, so a single dropped candidate was lost
+    /// permanently; retry it the same way.
     func sendIceCandidate(sessionId: String, candidate: IceCandidate, side: String = "sender") async throws {
+        var lastCode = -1
+        for attempt in 0..<4 {
+            let code = try await postIceCandidate(sessionId: sessionId, candidate: candidate, side: side)
+            if (200...299).contains(code) { return }
+            lastCode = code
+            if attempt < 3 {
+                try await Task.sleep(nanoseconds: 150_000_000)
+            }
+        }
+        ARLog.warn("Signaling", "POST /ice side=\(side) session=\(ARLog.sessionPrefix(sessionId)) gave up, last HTTP \(lastCode)")
+    }
+
+    private func postIceCandidate(sessionId: String, candidate: IceCandidate, side: String) async throws -> Int {
         var components = URLComponents(url: try endpoint("ice"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "side", value: side)]
         guard let url = components.url else { throw CastError.notConfigured }
@@ -125,10 +143,7 @@ final class SignalingClient: @unchecked Sendable {
         )
         request.httpBody = try JSONEncoder().encode(body)
         let (_, response) = try await session.data(for: request)
-        let code = (response as? HTTPURLResponse)?.statusCode ?? -1
-        if code < 200 || code >= 300 {
-            ARLog.warn("Signaling", "POST /ice side=\(side) session=\(ARLog.sessionPrefix(sessionId)) HTTP \(code)")
-        }
+        return (response as? HTTPURLResponse)?.statusCode ?? -1
     }
 
     func pollRemoteIceCandidates(sessionId: String, side: String = "receiver") async throws -> [IceCandidate] {
