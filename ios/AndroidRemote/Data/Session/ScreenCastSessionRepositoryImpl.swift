@@ -9,6 +9,15 @@ final class ScreenCastSessionRepositoryImpl: ScreenCastSessionRepository {
         SessionStore.saveCastSession(sessionId: sessionId, device: device, signalingHost: signalingHost)
     }
 
+    func saveDirectTestSession(sessionId: String, device: CastDevice, relayHost: String, relayPort: Int) {
+        SessionStore.saveDirectTestSession(
+            sessionId: sessionId,
+            device: device,
+            relayHost: relayHost,
+            relayPort: relayPort
+        )
+    }
+
     func clearSession() {
         SessionStore.clear()
     }

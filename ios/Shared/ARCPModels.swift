@@ -51,22 +51,29 @@ enum CastError: LocalizedError {
     case answerTimeout
     case invalidPairingCode
     case discoveryFailed
+    case relayBrowserNotOpen
     case notConfigured
     case webRtcUnavailable
     case castSdkUnavailable
     case castSessionFailed
     case lanAddressUnavailable
+    /// A signaling HTTP request (SDP/status) against the bound relay — LAN test server *or* the
+    /// extension's own self-hosted Cast-mode server — failed. Carries the actual path/host/status
+    /// so this never gets read as the unrelated hardcoded `.discoveryFailed` LAN-relay copy again.
+    case signalingRequestFailed(String)
 
     var errorDescription: String? {
         switch self {
         case .answerTimeout: return "TV did not respond in time"
         case .invalidPairingCode: return "Invalid pairing code"
-        case .discoveryFailed: return "Could not find Cast devices on network"
-        case .notConfigured: return "Session not configured"
+        case .discoveryFailed: return "Could not reach Mac relay — same Wi‑Fi, IP 192.168.18.6, port 8080, allow Local Network"
+        case .relayBrowserNotOpen: return "Open test-receiver.html in your Mac browser first, then tap Link Receiver"
+        case .notConfigured: return "Session not configured — Link Receiver on Test tab before broadcast"
         case .webRtcUnavailable: return "WebRTC SDK not linked — add GoogleWebRTC via SPM"
         case .castSdkUnavailable: return "Google Cast SDK not linked — resolve SPM packages in Xcode"
         case .castSessionFailed: return "Could not start Cast session"
         case .lanAddressUnavailable: return "Could not determine iPhone Wi‑Fi address"
+        case .signalingRequestFailed(let detail): return "Signaling request failed: \(detail)"
         }
     }
 }

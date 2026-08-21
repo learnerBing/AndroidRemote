@@ -12,7 +12,7 @@ settings:
     TARGETED_DEVICE_FAMILY: "1"
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: PLG6B7U4QU
     CODE_SIGN_STYLE: Automatic
 
 packages:
@@ -64,12 +64,24 @@ targets:
       properties:
         CFBundleDisplayName: AndroidRemote
         UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
-        NSLocalNetworkUsageDescription: "Allow LAN access so the web receiver and Chromecast can connect to this iPhone for screen mirroring."
+        NSLocalNetworkUsageDescription: "AndroidRemote uses your local network to find Chromecast / Google TV devices and to connect the Mac relay for screen recording."
+        NSMicrophoneUsageDescription: "Microphone audio is mixed into the screen recording when you enable it in the broadcast picker."
         NSBonjourServices:
           - _androidremote._tcp
           - _androidremote-test._tcp
           - _googlecast._tcp
+          - _02DE7020._googlecast._tcp
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
 
@@ -79,9 +91,13 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.androidremote.app.BroadcastExtension
+        OTHER_LDFLAGS: $(inherited) -ObjC -lc++
+        CLANG_CXX_LIBRARY: libc++
     sources:
       - path: BroadcastExtension
       - path: Shared
+    resources:
+      - path: BroadcastExtension/Assets.xcassets
     dependencies:
       - package: WebRTC
         product: WebRTC
@@ -94,6 +110,9 @@ targets:
       path: BroadcastExtension/Info.plist
       properties:
         CFBundleDisplayName: AndroidRemote Broadcast
+        CFBundleIconName: AppIcon
+        NSLocalNetworkUsageDescription: "Connect to the Mac relay on your Wi‑Fi network for WebRTC screen mirroring."
+        NSMicrophoneUsageDescription: "Capture microphone audio for the screen recording stream."
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         NSExtension:

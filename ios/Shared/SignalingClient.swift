@@ -3,6 +3,7 @@ import Foundation
 /// HTTP client for ARCP signaling (include in main app + broadcast extension targets).
 final class SignalingClient: @unchecked Sendable {
     private let session: URLSession
+    private let gate = RequestGate()
     private var tvHost: String?
     private var tvPort: Int?
 
@@ -21,6 +22,7 @@ final class SignalingClient: @unchecked Sendable {
 
     func bind(snapshot: SessionStore.Snapshot) {
         bind(host: snapshot.tvHost, port: snapshot.tvPort)
+        ARLog.info("Signaling", "bound relay \(snapshot.tvHost):\(snapshot.tvPort) session=\(ARLog.sessionPrefix(snapshot.sessionId)) transport=\(snapshot.transport.rawValue)")
     }
 
     // MARK: - Pairing
@@ -32,7 +34,7 @@ final class SignalingClient: @unchecked Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(ARCPPairRequest(code: code))
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await gate.send(request, using: session)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw CastError.invalidPairingCode
         }
@@ -47,10 +49,26 @@ final class SignalingClient: @unchecked Sendable {
     // MARK: - SDP
 
     func sendOffer(sessionId: String, sdp: String) async throws {
-        try await postSdp(sessionId: sessionId, type: "offer", sdp: sdp)
+        ARLog.info("Signaling", "sendOffer session=\(ARLog.sessionPrefix(sessionId)) bytes=\(sdp.count)")
+        var lastError: Error = CastError.notConfigured
+        for attempt in 0..<8 {
+            do {
+                try await postSdp(sessionId: sessionId, type: "offer", sdp: sdp)
+                ARLog.info("Signaling", "sendOffer OK attempt=\(attempt + 1) session=\(ARLog.sessionPrefix(sessionId))")
+                return
+            } catch {
+                lastError = error
+                ARLog.warn("Signaling", "sendOffer failed attempt=\(attempt + 1) session=\(ARLog.sessionPrefix(sessionId)) error=\(error.localizedDescription)")
+                if attempt < 7 {
+                    try await Task.sleep(nanoseconds: 400_000_000)
+                }
+            }
+        }
+        ARLog.error("Signaling", "sendOffer gave up session=\(ARLog.sessionPrefix(sessionId))")
+        throw lastError
     }
 
-    func pollAnswer(sessionId: String, maxAttempts: Int = 40) async throws -> String {
+    func pollAnswer(sessionId: String, maxAttempts: Int = 120) async throws -> String {
         for _ in 0..<maxAttempts {
             if let answer = try await fetchAnswer(sessionId: sessionId) {
                 return answer
@@ -67,7 +85,7 @@ final class SignalingClient: @unchecked Sendable {
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await gate.send(request, using: session)
         guard let http = response as? HTTPURLResponse else { return nil }
         if http.statusCode == 204 || data.isEmpty { return nil }
         guard http.statusCode == 200 else { return nil }
@@ -82,16 +100,39 @@ final class SignalingClient: @unchecked Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let body = ARCPSdpMessage(sessionId: sessionId, type: type, sdp: sdp)
         request.httpBody = try JSONEncoder().encode(body)
-        let (_, response) = try await session.data(for: request)
+        request.timeoutInterval = 15
+        let (_, response) = try await gate.send(request, using: session)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            throw CastError.notConfigured
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            ARLog.error("Signaling", "POST /sdp type=\(type) session=\(ARLog.sessionPrefix(sessionId)) HTTP \(code) url=\(url.absoluteString)")
+            throw CastError.signalingRequestFailed("POST /sdp HTTP \(code) \(url.absoluteString)")
         }
     }
 
     // MARK: - ICE
 
-    func sendIceCandidate(sessionId: String, candidate: IceCandidate) async throws {
-        let url = try endpoint("ice")
+    /// The loopback connection to the extension's own embedded server (Cast mode posts to its
+    /// own IP) has proven flaky enough in practice that individual POSTs fail outright fairly
+    /// often — sendOffer already tolerates this with an 8-attempt retry and reliably gets
+    /// through. sendIceCandidate previously had none, so a single dropped candidate was lost
+    /// permanently; retry it the same way.
+    func sendIceCandidate(sessionId: String, candidate: IceCandidate, side: String = "sender") async throws {
+        var lastCode = -1
+        for attempt in 0..<4 {
+            let code = try await postIceCandidate(sessionId: sessionId, candidate: candidate, side: side)
+            if (200...299).contains(code) { return }
+            lastCode = code
+            if attempt < 3 {
+                try await Task.sleep(nanoseconds: 150_000_000)
+            }
+        }
+        ARLog.warn("Signaling", "POST /ice side=\(side) session=\(ARLog.sessionPrefix(sessionId)) gave up, last HTTP \(lastCode)")
+    }
+
+    private func postIceCandidate(sessionId: String, candidate: IceCandidate, side: String) async throws -> Int {
+        var components = URLComponents(url: try endpoint("ice"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "side", value: side)]
+        guard let url = components.url else { throw CastError.notConfigured }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -102,17 +143,22 @@ final class SignalingClient: @unchecked Sendable {
             sdpMLineIndex: candidate.sdpMLineIndex
         )
         request.httpBody = try JSONEncoder().encode(body)
-        _ = try await session.data(for: request)
+        let (_, response) = try await gate.send(request, using: session)
+        return (response as? HTTPURLResponse)?.statusCode ?? -1
     }
 
-    func pollRemoteIceCandidates(sessionId: String) async throws -> [IceCandidate] {
+    func pollRemoteIceCandidates(sessionId: String, side: String = "receiver") async throws -> [IceCandidate] {
         var components = URLComponents(url: try endpoint("ice"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "sessionId", value: sessionId)]
+        components.queryItems = [
+            URLQueryItem(name: "sessionId", value: sessionId),
+            URLQueryItem(name: "side", value: side),
+            URLQueryItem(name: "drain", value: "1"),
+        ]
         guard let url = components.url else { return [] }
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await gate.send(request, using: session)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return [] }
         let list = try JSONDecoder().decode(ARCPIceListResponse.self, from: data)
         return list.candidates.map {
@@ -129,10 +175,33 @@ final class SignalingClient: @unchecked Sendable {
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return "waiting" }
+        let (data, response) = try await gate.send(request, using: session)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            ARLog.warn("Signaling", "GET /status session=\(ARLog.sessionPrefix(sessionId)) failed")
+            return "waiting"
+        }
         let status = try JSONDecoder().decode(ARCPStatusResponse.self, from: data)
         return status.state
+    }
+
+    func updateSessionStatus(sessionId: String, state: String) async throws {
+        ARLog.info("Signaling", "POST /status state=\(state) session=\(ARLog.sessionPrefix(sessionId))")
+        let url = try endpoint("status")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 5
+        struct Body: Encodable {
+            let sessionId: String
+            let state: String
+        }
+        request.httpBody = try JSONEncoder().encode(Body(sessionId: sessionId, state: state))
+        let (_, response) = try await gate.send(request, using: session)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            ARLog.error("Signaling", "POST /status failed HTTP \(code) session=\(ARLog.sessionPrefix(sessionId))")
+            throw CastError.signalingRequestFailed("POST /status HTTP \(code) \(url.absoluteString)")
+        }
     }
 
     // MARK: - Private
@@ -143,6 +212,20 @@ final class SignalingClient: @unchecked Sendable {
             throw CastError.notConfigured
         }
         return url
+    }
+}
+
+/// In Cast mode, the extension's own WebRtcBroadcastEngine is a client of its own
+/// ExtensionSignalingServer (self-hosted, over loopback) — sendOffer, the per-candidate
+/// didGenerate callback, and the 1s ICE republish loop can all fire concurrent requests to that
+/// same tiny in-process server. Device logs showed SDP (effectively one request at a time)
+/// eventually getting through via retry, while ICE (many concurrent requests) almost never did
+/// even with retries added — consistent with that concurrency, not just flakiness, overwhelming
+/// the server. Actors serialize calls into them, so routing every request through one instance
+/// per client guarantees at most one is ever in flight at a time.
+private actor RequestGate {
+    func send(_ request: URLRequest, using session: URLSession) async throws -> (Data, URLResponse) {
+        try await session.data(for: request)
     }
 }
 

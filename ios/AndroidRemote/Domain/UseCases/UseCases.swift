@@ -36,13 +36,16 @@ struct PairCastDeviceUseCase {
     let castSession: CastSessionManaging
     let sessionStore: ScreenCastSessionRepository
 
-    func execute(device: CastDevice, pairingCode: String) async throws -> PairingSession {
+    /// Chromecast pairing never has a user-typed code to validate — MirrorHomeView shows no
+    /// entry field for isChromecast devices, the code is always auto-received over the trusted
+    /// Cast custom-message channel and just displayed. Comparing it against itself was a no-op
+    /// on a first attempt, but on a retry `connect(to:)` tears down a stale session and the TV
+    /// relaunches the receiver fresh with a brand-new code — while the caller's `pairingCode`
+    /// still held the old one from the first attempt, so this used to reject the retry outright.
+    func execute(device: CastDevice) async throws -> PairingSession {
         try await castSession.connect(to: device)
 
         let expectedCode = try await waitForPairingCode(timeoutSeconds: 15)
-        guard pairingCode.isEmpty || pairingCode == expectedCode else {
-            throw CastError.invalidPairingCode
-        }
 
         guard let host = LanAddress.currentWiFiIPv4() else {
             throw CastError.lanAddressUnavailable
@@ -80,13 +83,25 @@ struct ObserveCastStatusUseCase {
     let sessionStore: ScreenCastSessionRepository
 
     func pollUntilConnected(timeoutSeconds: Int = 120) async throws -> Bool {
-        guard let snapshot = sessionStore.loadSession() else { return false }
+        guard let snapshot = sessionStore.loadSession() else {
+            ARLog.warn("Test", "pollUntilConnected — no session")
+            return false
+        }
         signaling.bind(snapshot: snapshot)
-        for _ in 0..<(timeoutSeconds * 2) {
+        ARLog.info("Test", "polling status session=\(ARLog.sessionPrefix(snapshot.sessionId))")
+        var lastStatus = ""
+        for i in 0..<(timeoutSeconds * 2) {
             let status = try await signaling.pollStatus(sessionId: snapshot.sessionId)
+            if status != lastStatus {
+                ARLog.info("Test", "status=\(status) session=\(ARLog.sessionPrefix(snapshot.sessionId))")
+                lastStatus = status
+            } else if i == 0 || i % 20 == 19 {
+                ARLog.info("Test", "still status=\(status) poll=\(i + 1)")
+            }
             if status == "connected" { return true }
             try await Task.sleep(nanoseconds: 500_000_000)
         }
+        ARLog.warn("Test", "pollUntilConnected timeout session=\(ARLog.sessionPrefix(snapshot.sessionId))")
         return false
     }
 }
@@ -96,41 +111,5 @@ struct ClearCastSessionUseCase {
 
     func execute() {
         sessionStore.clearSession()
-    }
-}
-
-/// Direct LAN test: link web receiver via HTTP coordinator (no Chromecast).
-struct PairDirectWebReceiverUseCase {
-    let coordinator: TestCoordinatorServer
-    let sessionStore: ScreenCastSessionRepository
-
-    func execute(pairingCode: String) throws -> PairingSession {
-        guard pairingCode.count == 6, pairingCode.allSatisfy(\.isNumber) else {
-            throw CastError.invalidPairingCode
-        }
-        guard let host = LanAddress.currentWiFiIPv4() else {
-            throw CastError.lanAddressUnavailable
-        }
-
-        let sessionId = UUID().uuidString
-        coordinator.registerLink(
-            code: pairingCode,
-            sessionId: sessionId,
-            signalingHost: host,
-            signalingPort: CastConfig.signalingPort
-        )
-
-        let device = CastDevice(
-            id: "web-receiver-test",
-            name: "Web Receiver (Test)",
-            kind: .chromecast
-        )
-        sessionStore.saveCastSession(sessionId: sessionId, device: device, signalingHost: host)
-
-        return PairingSession(
-            sessionId: sessionId,
-            pairingCode: pairingCode,
-            expiresAt: Date().addingTimeInterval(300)
-        )
     }
 }

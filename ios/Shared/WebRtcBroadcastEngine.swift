@@ -7,6 +7,19 @@ import WebRTC
 
 #if canImport(WebRTC)
 private final class FramePusher: RTCVideoCapturer {}
+
+private enum WebRtcRuntime {
+    private static let lock = NSLock()
+    private static var sslInitialized = false
+
+    static func ensureSSLInitialized() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !sslInitialized else { return }
+        RTCInitializeSSL()
+        sslInitialized = true
+    }
+}
 #endif
 
 /// WebRTC sender used by the Broadcast Upload Extension (offerer role).
@@ -19,13 +32,24 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
     private var activeSessionId: String?
 
 #if canImport(WebRTC)
+    private let audioDevice = ReplayKitAudioDevice.shared
     private var factory: RTCPeerConnectionFactory?
     private var peerConnection: RTCPeerConnection?
     private var videoSource: RTCVideoSource?
     private var videoCapturer: RTCVideoCapturer?
     private var localIceCandidates: [IceCandidate] = []
+    private var icePollTask: Task<Void, Never>?
+    private var iceRepublishTask: Task<Void, Never>?
+    private var offerSent = false
+    private var iceGatheringContinuations: [CheckedContinuation<Void, Never>] = []
+    private var outputFormatAdapted = false
+    private var pushedFrameCount = 0
+    private var statsTask: Task<Void, Never>?
     private let factoryQueue = DispatchQueue(label: "com.androidremote.webrtc")
 #endif
+
+    /// Called once video capture pipeline is ready (before SDP exchange completes).
+    var onCaptureReady: (() -> Void)?
 
     init(signaling: SignalingClient, streamConfig: StreamConfig = StreamConfig()) {
         self.signaling = signaling
@@ -34,6 +58,7 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
     }
 
     func start(session: SessionStore.Snapshot) async throws {
+        ARLog.info("WebRTC", "start session=\(ARLog.sessionPrefix(session.sessionId)) transport=\(session.transport.rawValue) relay=\(session.signalingHost):\(session.signalingPort)")
         signaling.bind(snapshot: session)
         activeSessionId = session.sessionId
 
@@ -45,6 +70,7 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
                 throw CastError.notConfigured
             }
         }
+        // directLanRelay: Mac relay handles signaling; extension uses outbound HTTP only.
 
 #if canImport(WebRTC)
         try await startWebRtc(sessionId: session.sessionId)
@@ -54,10 +80,22 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
     }
 
     func stop() {
+        let endingSession = activeSessionId
+        ARLog.info("WebRTC", "stop session=\(endingSession.map(ARLog.sessionPrefix) ?? "none")")
         extensionSignalingServer.stop()
         activeSessionId = nil
 #if canImport(WebRTC)
+        icePollTask?.cancel()
+        icePollTask = nil
+        iceRepublishTask?.cancel()
+        iceRepublishTask = nil
+        offerSent = false
+        outputFormatAdapted = false
+        pushedFrameCount = 0
+        statsTask?.cancel()
+        statsTask = nil
         factoryQueue.sync {
+            iceGatheringContinuations.removeAll()
             peerConnection?.close()
             peerConnection = nil
             videoSource = nil
@@ -65,69 +103,102 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
             factory = nil
             localIceCandidates.removeAll()
         }
+        audioDevice.terminateDevice()
+        if let endingSession {
+            Task {
+                try? await signaling.updateSessionStatus(sessionId: endingSession, state: "ended")
+            }
+        }
 #endif
     }
 
 #if canImport(WebRTC)
+    // Audio push is disabled for now — see SampleHandler.processSampleBuffer.
+
     func pushVideoSample(_ sampleBuffer: CMSampleBuffer) {
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
-              let capturer = videoCapturer,
-              let source = videoSource else { return }
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
         let timestampNs = Int64(CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
             * Double(NSEC_PER_SEC))
-        let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
-        let rotation = frameRotation(from: sampleBuffer)
-        let frame = RTCVideoFrame(buffer: rtcBuffer, rotation: rotation, timeStampNs: timestampNs)
-        source.capturer(capturer, didCapture: frame)
+        // Orientation/rotation handling is disabled for now — feeding a non-zero RTCVideoRotation
+        // into this WebRTC build's H264 path crashes the extension on the very first frame
+        // (CMSampleBuffer finalizer trap inside the encoder pipeline). Always encode the raw
+        // buffer as captured, unrotated, until that's root-caused.
+        factoryQueue.async { [weak self] in
+            guard let self, let capturer = self.videoCapturer, let source = self.videoSource else { return }
+            let width = CVPixelBufferGetWidth(pixelBuffer)
+            let height = CVPixelBufferGetHeight(pixelBuffer)
+            if !self.outputFormatAdapted {
+                self.outputFormatAdapted = true
+                source.adaptOutputFormat(
+                    toWidth: Int32(width),
+                    height: Int32(height),
+                    fps: Int32(self.streamConfig.fps)
+                )
+                ARLog.info(
+                    "WebRTC",
+                    "adaptOutputFormat \(width)x\(height) (from first captured frame) format=\(Self.fourCC(CVPixelBufferGetPixelFormatType(pixelBuffer)))"
+                )
+            }
+            self.pushedFrameCount += 1
+            if self.pushedFrameCount % 90 == 0 {
+                ARLog.info(
+                    "WebRTC",
+                    "pushVideoSample #\(self.pushedFrameCount) \(width)x\(height) format=\(Self.fourCC(CVPixelBufferGetPixelFormatType(pixelBuffer)))"
+                )
+            }
+            let rtcBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
+            let frame = RTCVideoFrame(buffer: rtcBuffer, rotation: ._0, timeStampNs: timestampNs)
+            source.capturer(capturer, didCapture: frame)
+        }
+    }
+
+    private static func fourCC(_ type: OSType) -> String {
+        let bytes: [UInt8] = [
+            UInt8((type >> 24) & 0xff),
+            UInt8((type >> 16) & 0xff),
+            UInt8((type >> 8) & 0xff),
+            UInt8(type & 0xff),
+        ]
+        let scalars = bytes.map { (32...126).contains($0) ? Character(UnicodeScalar($0)) : "." }
+        return String(scalars)
     }
 
     private func startWebRtc(sessionId: String) async throws {
+        ARLog.info("WebRTC", "setupPeerConnection session=\(ARLog.sessionPrefix(sessionId))")
+        try await runOnFactoryQueue {
+            try self.setupPeerConnection()
+        }
+
+        ARLog.info("WebRTC", "createOffer session=\(ARLog.sessionPrefix(sessionId))")
+        let offer = try await createOffer()
+        ARLog.info("WebRTC", "setLocalDescription session=\(ARLog.sessionPrefix(sessionId)) bytes=\(offer.sdp.count)")
+        try await setLocalDescription(offer)
+
+        offerSent = true
+        ARLog.info("WebRTC", "sendOffer (initial) session=\(ARLog.sessionPrefix(sessionId)) bytes=\(offer.sdp.count)")
+        try await signaling.sendOffer(sessionId: sessionId, sdp: offer.sdp)
+        try await flushLocalIceCandidates(sessionId: sessionId)
+        try? await signaling.updateSessionStatus(sessionId: sessionId, state: "connecting")
+        ARLog.info("WebRTC", "offer on relay — waiting for answer session=\(ARLog.sessionPrefix(sessionId))")
+
+        startOfferRefreshTask(sessionId: sessionId)
+        startLocalIceRepublish(sessionId: sessionId)
+
+        try await exchangeIce(sessionId: sessionId)
+        try await runOnFactoryQueue {
+            self.applyVideoSenderParameters()
+        }
+        ARLog.info("WebRTC", "answer applied session=\(ARLog.sessionPrefix(sessionId))")
+        startRemoteIcePolling(sessionId: sessionId)
+    }
+
+    private func runOnFactoryQueue(_ work: @escaping () throws -> Void) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            factoryQueue.async { [weak self] in
-                guard let self else {
-                    continuation.resume(throwing: CastError.notConfigured)
-                    return
-                }
+            factoryQueue.async {
                 do {
-                    try self.setupPeerConnection()
-                    guard let pc = self.peerConnection else {
-                        throw CastError.notConfigured
-                    }
-
-                    let constraints = RTCMediaConstraints(
-                        mandatoryConstraints: [
-                            "OfferToReceiveAudio": "false",
-                            "OfferToReceiveVideo": "false"
-                        ],
-                        optionalConstraints: nil
-                    )
-
-                    pc.offer(for: constraints) { sdp, error in
-                        if let error {
-                            continuation.resume(throwing: error)
-                            return
-                        }
-                        guard let sdp else {
-                            continuation.resume(throwing: CastError.notConfigured)
-                            return
-                        }
-                        pc.setLocalDescription(sdp) { error in
-                            if let error {
-                                continuation.resume(throwing: error)
-                                return
-                            }
-                            Task {
-                                do {
-                                    try await self.signaling.sendOffer(sessionId: sessionId, sdp: sdp.sdp)
-                                    try await self.exchangeIce(sessionId: sessionId)
-                                    continuation.resume()
-                                } catch {
-                                    continuation.resume(throwing: error)
-                                }
-                            }
-                        }
-                    }
+                    try work()
+                    continuation.resume()
                 } catch {
                     continuation.resume(throwing: error)
                 }
@@ -135,25 +206,224 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
         }
     }
 
+    private func createOffer() async throws -> RTCSessionDescription {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<RTCSessionDescription, Error>) in
+            factoryQueue.async { [weak self] in
+                guard let pc = self?.peerConnection else {
+                    continuation.resume(throwing: CastError.notConfigured)
+                    return
+                }
+                let constraints = RTCMediaConstraints(
+                    mandatoryConstraints: [
+                        "OfferToReceiveAudio": "false",
+                        "OfferToReceiveVideo": "false",
+                    ],
+                    optionalConstraints: nil
+                )
+                pc.offer(for: constraints) { sdp, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                        return
+                    }
+                    guard let sdp else {
+                        continuation.resume(throwing: CastError.notConfigured)
+                        return
+                    }
+                    continuation.resume(returning: sdp)
+                }
+            }
+        }
+    }
+
+    private func setLocalDescription(_ sdp: RTCSessionDescription) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            factoryQueue.async { [weak self] in
+                guard let pc = self?.peerConnection else {
+                    continuation.resume(throwing: CastError.notConfigured)
+                    return
+                }
+                pc.setLocalDescription(sdp) { error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume()
+                    }
+                }
+            }
+        }
+    }
+
+    private func startOfferRefreshTask(sessionId: String) {
+        Task { [weak self] in
+            guard let self else { return }
+            await self.waitForIceGatheringComplete()
+            let updated = self.factoryQueue.sync {
+                self.peerConnection?.localDescription?.sdp
+            }
+            guard let updated, !updated.isEmpty else { return }
+            try? await self.signaling.sendOffer(sessionId: sessionId, sdp: updated)
+            try? await self.flushLocalIceCandidates(sessionId: sessionId)
+        }
+    }
+
     private func setupPeerConnection() throws {
-        RTCInitializeSSL()
+        WebRtcRuntime.ensureSSLInitialized()
         let encoderFactory = RTCDefaultVideoEncoderFactory()
+        if let h264 = RTCDefaultVideoEncoderFactory.supportedCodecs().first(where: { $0.name == "H264" }) {
+            encoderFactory.preferredCodec = h264
+        }
         let decoderFactory = RTCDefaultVideoDecoderFactory()
-        factory = RTCPeerConnectionFactory(encoderFactory: encoderFactory, decoderFactory: decoderFactory)
+        // Always use custom audio device in the extension — default WebRTC audio touches AVAudioSession and crashes.
+        let factory = RTCPeerConnectionFactory(
+            encoderFactory: encoderFactory,
+            decoderFactory: decoderFactory,
+            audioDevice: audioDevice
+        )
+        self.factory = factory
 
         let config = RTCConfiguration()
         config.iceServers = [RTCIceServer(urlStrings: ["stun:stun.l.google.com:19302"])]
         config.sdpSemantics = .unifiedPlan
+        config.continualGatheringPolicy = .gatherContinually
 
-        let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
-        peerConnection = factory?.peerConnection(with: config, constraints: constraints, delegate: self)
+        let pcConstraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
+        peerConnection = factory.peerConnection(with: config, constraints: pcConstraints, delegate: self)
 
-        videoSource = factory?.videoSource()
+        videoSource = factory.videoSource()
         let capturer = FramePusher(delegate: videoSource!)
         videoCapturer = capturer
-        let videoTrack = factory?.videoTrack(with: videoSource!, trackId: "screen0")
-        if let videoTrack {
-            peerConnection?.add(videoTrack, streamIds: ["screen"])
+
+        guard let videoSource, let pc = peerConnection else {
+            throw CastError.notConfigured
+        }
+        // Output format is adapted lazily from the first captured frame's own dimensions (see
+        // pushVideoSample) — NOT a hardcoded landscape size here. adaptOutputFormat's target
+        // aspect ratio must match the buffer's actual aspect, or libwebrtc's video adapter computes
+        // a degenerate near-zero crop against the mismatched aspect and delivers no visible frames
+        // (a portrait 720x1280 buffer against a landscape 1280x720 target produced a black screen).
+
+        let videoTrack = factory.videoTrack(with: videoSource, trackId: "screen0")
+        videoTrack.isEnabled = true
+        let transceiverInit = RTCRtpTransceiverInit()
+        transceiverInit.direction = .sendOnly
+        transceiverInit.streamIds = ["screen-stream"]
+        let encoding = RTCRtpEncodingParameters()
+        encoding.maxBitrateBps = NSNumber(value: streamConfig.maxBitrateKbps * 1000)
+        encoding.minBitrateBps = NSNumber(value: streamConfig.minBitrateKbps * 1000)
+        encoding.maxFramerate = NSNumber(value: streamConfig.fps)
+        transceiverInit.sendEncodings = [encoding]
+        pc.addTransceiver(with: videoTrack, init: transceiverInit)
+        applyVideoSenderParameters()
+        // Audio is disabled for now — see SampleHandler.processSampleBuffer.
+
+        factoryQueue.async { [weak self] in
+            self?.onCaptureReady?()
+        }
+    }
+
+    private func applyVideoSenderParameters() {
+        guard let pc = peerConnection else { return }
+        guard let sender = pc.senders.first(where: { $0.track?.kind == "video" }) else { return }
+
+        var params = sender.parameters
+        if params.encodings.isEmpty {
+            params.encodings = [RTCRtpEncodingParameters()]
+        }
+        let maxBps = streamConfig.maxBitrateKbps * 1000
+        let minBps = streamConfig.minBitrateKbps * 1000
+        for index in params.encodings.indices {
+            params.encodings[index].maxBitrateBps = NSNumber(value: maxBps)
+            params.encodings[index].minBitrateBps = NSNumber(value: minBps)
+            params.encodings[index].maxFramerate = NSNumber(value: streamConfig.fps)
+        }
+        params.degradationPreference = NSNumber(value: RTCDegradationPreference.maintainResolution.rawValue)
+        sender.parameters = params
+        ARLog.info(
+            "WebRTC",
+            "encoder \(streamConfig.width)x\(streamConfig.height)@\(streamConfig.fps) " +
+            "bitrate \(streamConfig.minBitrateKbps)-\(streamConfig.maxBitrateKbps) kbps H264"
+        )
+    }
+
+    private func flushLocalIceCandidates(sessionId: String) async throws {
+        let pending = factoryQueue.sync { localIceCandidates }
+        for candidate in pending where !candidate.candidate.isEmpty {
+            try await signaling.sendIceCandidate(sessionId: sessionId, candidate: candidate)
+        }
+    }
+
+    private func waitForIceGatheringComplete(timeoutSeconds: Double = 10) async {
+        let alreadyComplete = factoryQueue.sync {
+            peerConnection?.iceGatheringState == .complete
+        }
+        if alreadyComplete { return }
+
+        await withTaskGroup(of: Bool.self) { group in
+            group.addTask {
+                await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                    self.factoryQueue.async {
+                        if self.peerConnection?.iceGatheringState == .complete {
+                            continuation.resume()
+                        } else {
+                            self.iceGatheringContinuations.append(continuation)
+                        }
+                    }
+                }
+                return true
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(timeoutSeconds * 1_000_000_000))
+                return false
+            }
+            _ = await group.next()
+            group.cancelAll()
+        }
+        factoryQueue.async {
+            self.iceGatheringContinuations.removeAll()
+        }
+    }
+
+    private func startLocalIceRepublish(sessionId: String) {
+        iceRepublishTask?.cancel()
+        iceRepublishTask = Task { [weak self] in
+            guard let self else { return }
+            // Hard cap even if ICE never connects — this exists to backstop a missed initial
+            // poll, not to run for the whole broadcast. Without a bound it re-posts every local
+            // candidate every second indefinitely, which (with the per-candidate posts from
+            // didGenerate) floods this extension's own embedded HTTP server continuously.
+            for _ in 0..<30 where !Task.isCancelled {
+                let batch = self.factoryQueue.sync { self.localIceCandidates }
+                for candidate in batch where !candidate.candidate.isEmpty {
+                    try? await self.signaling.sendIceCandidate(sessionId: sessionId, candidate: candidate)
+                }
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+        }
+    }
+
+    private func startRemoteIcePolling(sessionId: String) {
+        icePollTask?.cancel()
+        icePollTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                do {
+                    let remote = try await signaling.pollRemoteIceCandidates(sessionId: sessionId, side: "receiver")
+                    for candidate in remote {
+                        try await addRemoteCandidate(candidate)
+                    }
+                    let iceState = self.currentIceConnectionState()
+                    if iceState == .connected || iceState == .completed { break }
+                } catch {
+                    break
+                }
+                try? await Task.sleep(nanoseconds: 300_000_000)
+            }
+        }
+    }
+
+    private func currentIceConnectionState() -> RTCIceConnectionState {
+        factoryQueue.sync {
+            peerConnection?.iceConnectionState ?? .new
         }
     }
 
@@ -176,20 +446,46 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
             }
         }
 
-        // Send locally gathered ICE candidates
-        for candidate in localIceCandidates {
-            try await signaling.sendIceCandidate(sessionId: sessionId, candidate: candidate)
-        }
-
-        // Poll TV ICE candidates
-        for _ in 0..<30 {
-            let remote = try await signaling.pollRemoteIceCandidates(sessionId: sessionId)
+        // Poll receiver ICE until media path is up (signaling "connected" != ICE connected).
+        for _ in 0..<120 {
+            let remote = try await signaling.pollRemoteIceCandidates(sessionId: sessionId, side: "receiver")
             for c in remote {
                 try await addRemoteCandidate(c)
             }
-            let status = try await signaling.pollStatus(sessionId: sessionId)
-            if status == "connected" { break }
+            let iceState = currentIceConnectionState()
+            if iceState == .connected || iceState == .completed { break }
             try await Task.sleep(nanoseconds: 300_000_000)
+        }
+    }
+
+    private func startStatsLogging(sessionId: String) {
+        guard statsTask == nil else { return }
+        statsTask = Task { [weak self] in
+            while let self, !Task.isCancelled {
+                await self.logStatsOnce(sessionId: sessionId)
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+            }
+        }
+    }
+
+    private func logStatsOnce(sessionId: String) async {
+        guard let pc = factoryQueue.sync(execute: { self.peerConnection }) else { return }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            pc.statistics { report in
+                for stat in report.statistics.values where stat.type == "outbound-rtp" {
+                    let v = stat.values
+                    func field(_ key: String) -> String {
+                        v[key].map { "\($0)" } ?? "-"
+                    }
+                    ARLog.info(
+                        "WebRTC",
+                        "stats framesEncoded=\(field("framesEncoded")) framesSent=\(field("framesSent")) " +
+                        "bytesSent=\(field("bytesSent")) qualityLimitation=\(field("qualityLimitationReason")) " +
+                        "session=\(ARLog.sessionPrefix(sessionId))"
+                    )
+                }
+                continuation.resume()
+            }
         }
     }
 
@@ -216,22 +512,6 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
         }
     }
 
-    private func frameRotation(from sampleBuffer: CMSampleBuffer) -> RTCVideoRotation {
-        if let orientation = CMGetAttachment(
-            sampleBuffer,
-            key: RPVideoSampleOrientationKey as CFString,
-            attachmentModeOut: nil
-        ) as? NSNumber {
-            switch orientation.uint32Value {
-            case 1: return ._0
-            case 3: return ._180
-            case 6: return ._90
-            case 8: return ._270
-            default: return ._0
-            }
-        }
-        return ._0
-    }
 #endif
 }
 
@@ -243,31 +523,58 @@ extension WebRtcBroadcastEngine: RTCPeerConnectionDelegate {
     func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {
         guard let sessionId = activeSessionId else { return }
+        ARLog.info("WebRTC", "ICE state=\(newState.rawValue) session=\(ARLog.sessionPrefix(sessionId))")
         switch newState {
         case .connected, .completed:
             extensionSignalingServer.updateConnectionState(sessionId, state: "connected")
+            startStatsLogging(sessionId: sessionId)
+            // The republish loop exists to help initial connectivity if the receiver's first
+            // poll missed a candidate — once ICE is actually connected it serves no purpose and
+            // was otherwise running for the entire broadcast lifetime, flooding this ~50MB
+            // extension's own tiny HTTP server with a full re-post of every local candidate
+            // every second, indefinitely.
+            iceRepublishTask?.cancel()
+            iceRepublishTask = nil
+            Task {
+                try? await signaling.updateSessionStatus(sessionId: sessionId, state: "connected")
+            }
         case .disconnected, .failed, .closed:
             extensionSignalingServer.updateConnectionState(sessionId, state: "disconnected")
+            Task {
+                try? await signaling.updateSessionStatus(sessionId: sessionId, state: "disconnected")
+            }
         default:
             break
         }
     }
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
-        localIceCandidates.append(
-            IceCandidate(
-                candidate: candidate.sdp,
-                sdpMid: candidate.sdpMid,
-                sdpMLineIndex: candidate.sdpMLineIndex
-            )
+        let ice = IceCandidate(
+            candidate: candidate.sdp,
+            sdpMid: candidate.sdpMid,
+            sdpMLineIndex: candidate.sdpMLineIndex
         )
+        factoryQueue.async { [weak self] in
+            guard let self else { return }
+            self.localIceCandidates.append(ice)
+            guard self.offerSent, let sessionId = self.activeSessionId, !ice.candidate.isEmpty else { return }
+            Task {
+                try? await self.signaling.sendIceCandidate(sessionId: sessionId, candidate: ice)
+            }
+        }
     }
 
     func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
     func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {}
-    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {
+        if newState == .complete {
+            factoryQueue.async { [weak self] in
+                guard let self else { return }
+                let pending = self.iceGatheringContinuations
+                self.iceGatheringContinuations.removeAll()
+                pending.forEach { $0.resume() }
+            }
+        }
+    }
 }
 #endif
-
-// ReplayKit orientation key (available without import in extension)
-private let RPVideoSampleOrientationKey = "RPVideoSampleOrientationKey"

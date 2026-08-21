@@ -17,6 +17,7 @@ protocol SignalingClientRepository {
 protocol ScreenCastSessionRepository {
     func savePairedSession(_ session: PairingSession, device: CastDevice)
     func saveCastSession(sessionId: String, device: CastDevice, signalingHost: String)
+    func saveDirectTestSession(sessionId: String, device: CastDevice, relayHost: String, relayPort: Int)
     func clearSession()
     func loadSession() -> SessionStore.Snapshot?
 }

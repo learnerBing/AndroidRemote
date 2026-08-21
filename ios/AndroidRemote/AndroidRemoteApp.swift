@@ -4,6 +4,7 @@ import SwiftUI
 struct AndroidRemoteApp: App {
     init() {
         CastBootstrap.configure()
+        LocalNetworkAuthorization.shared.requestAuthorization()
     }
 
     var body: some Scene {

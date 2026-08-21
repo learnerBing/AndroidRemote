@@ -2,85 +2,111 @@ import SwiftUI
 
 @MainActor
 final class DirectTestViewModel: ObservableObject {
-    @Published var pairingCode: String = ""
-    @Published var iphoneIP: String = ""
-    @Published var localReceiverBaseURL: String = ""
-    @Published var receiverURL: String = TestReceiverConfig.defaultReceiverBaseURL
+    @Published var detectedCode: String?
+    @Published var relayHost: String = ""
+    @Published var relayPort: String = "8080"
     @Published var connectionState: ConnectionState = .idle
-    @Published var coordinatorRunning = false
-    @Published var localHealthOK = false
-    @Published var localNetworkHint: String?
     @Published var errorMessage: String?
     @Published var showError = false
+    @Published var broadcastActive = false
+    @Published var relayStatus: String = "waiting"
 
     var canLink: Bool {
-        pairingCode.count == 6 && coordinatorRunning && LanAddress.isValidIPv4(iphoneIP)
+        LanAddress.isValidIPv4(relayHost) && (Int(relayPort) ?? 0) > 0
     }
 
-    var receiverURLWithIP: String {
-        let base: String
-        if !localReceiverBaseURL.trimmingCharacters(in: .whitespaces).isEmpty {
-            base = localReceiverBaseURL.trimmingCharacters(in: .whitespaces)
-                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        } else {
-            base = receiverURL.split(separator: "?").first.map(String.init) ?? receiverURL
+    var receiverPageURL: String {
+        guard LanAddress.isValidIPv4(relayHost), let port = Int(relayPort), port > 0 else {
+            return "http://MAC_IP:8080/test-receiver.html"
         }
-        guard LanAddress.isValidIPv4(iphoneIP) else { return base }
-        return "\(base)?iphone=\(iphoneIP)"
+        return "http://\(relayHost):\(port)/test-receiver.html"
     }
 
-    private let coordinatorService = TestCoordinatorService.shared
     private let sessionRepository = ScreenCastSessionRepositoryImpl()
     private let signaling = SignalingClient()
+    private let relayClient = RelayLinkClient()
 
     private lazy var pairDirect = PairDirectWebReceiverUseCase(
-        coordinator: coordinatorService.server,
-        sessionStore: sessionRepository
-    )
-
-    private lazy var observeStatus = ObserveCastStatusUseCase(
-        signaling: signaling,
+        relayClient: relayClient,
         sessionStore: sessionRepository
     )
 
     private var statusTask: Task<Void, Never>?
-    private var healthTask: Task<Void, Never>?
+    private var broadcastStartedObserver: DarwinObserver?
+    private var broadcastFailedObserver: DarwinObserver?
+    private var broadcastFinishedObserver: DarwinObserver?
 
     func onAppear() {
-        refreshNetworkInfo()
-        LocalNetworkAuthorization.shared.requestAuthorization()
-        startCoordinator()
-        startHealthPolling()
+        if relayHost.isEmpty {
+            relayHost = UserDefaults.standard.string(forKey: "test.relayHost") ?? ""
+        }
+        broadcastStartedObserver = BroadcastNotification.observeStarted { [weak self] in
+            Task { @MainActor in
+                self?.broadcastActive = true
+                self?.evaluateStreamingState()
+            }
+        }
+        broadcastFailedObserver = BroadcastNotification.observeFailed { [weak self] in
+            Task { @MainActor in
+                self?.broadcastActive = false
+                let hint = SessionStore.load() == nil
+                    ? "No linked session in App Group. Tap Link Receiver and wait for the code to appear, then start broadcast from the in-app button (not Control Center)."
+                    : "Broadcast failed. Link Receiver again, then start broadcast from the in-app button below (not Control Center)."
+                self?.errorMessage = hint
+                self?.showError = true
+            }
+        }
+        broadcastFinishedObserver = BroadcastNotification.observeFinished { [weak self] in
+            Task { @MainActor in
+                self?.broadcastActive = false
+                if self?.connectionState == .streaming {
+                    self?.connectionState = .connecting
+                }
+            }
+        }
     }
 
     func onDisappear() {
         statusTask?.cancel()
-        healthTask?.cancel()
-        // Keep coordinator running — browser on TV/Mac must reach iPhone while testing.
-    }
-
-    func refreshNetworkInfo() {
-        iphoneIP = LanAddress.currentWiFiIPv4() ?? ""
-        if iphoneIP.isEmpty {
-            localNetworkHint = "No Wi‑Fi IP found. Connect to Wi‑Fi and tap Refresh."
-            coordinatorRunning = false
-        } else {
-            startCoordinator()
-        }
+        broadcastStartedObserver = nil
+        broadcastFailedObserver = nil
+        broadcastFinishedObserver = nil
     }
 
     func linkReceiver() {
-        guard canLink else { return }
+        guard canLink, let port = Int(relayPort) else { return }
+        ARLog.info("Test", "linkReceiver relay=\(relayHost):\(port)")
         connectionState = .connecting
         errorMessage = nil
+        broadcastActive = false
+        UserDefaults.standard.set(relayHost, forKey: "test.relayHost")
 
-        do {
-            _ = try pairDirect.execute(pairingCode: pairingCode)
-            startStatusPolling()
-        } catch {
-            errorMessage = error.localizedDescription
-            showError = true
-            connectionState = .idle
+        Task {
+            let previous = SessionStore.load()
+            do {
+                let session = try await pairDirect.execute(
+                    relayHost: relayHost,
+                    relayPort: port
+                )
+                guard SessionStore.load() != nil else {
+                    throw CastError.notConfigured
+                }
+                if let previous, previous.sessionId != session.sessionId {
+                    let endSignaling = SignalingClient()
+                    endSignaling.bind(snapshot: previous)
+                    try? await endSignaling.updateSessionStatus(sessionId: previous.sessionId, state: "ended")
+                }
+                detectedCode = session.pairingCode
+                ARLog.configureRelay(host: relayHost, port: port, sessionId: session.sessionId)
+                ARLog.info("Test", "linked code=\(session.pairingCode) session=\(ARLog.sessionPrefix(session.sessionId))")
+                broadcastActive = false
+                startStatusPolling()
+            } catch {
+                ARLog.error("Test", "link failed: \(error.localizedDescription)")
+                errorMessage = error.localizedDescription
+                showError = true
+                connectionState = .idle
+            }
         }
     }
 
@@ -91,18 +117,18 @@ final class DirectTestViewModel: ObservableObject {
 
     func resetSession() {
         statusTask?.cancel()
-        coordinatorService.server.clearLink(code: pairingCode)
+        if let snapshot = SessionStore.load() {
+            let signaling = SignalingClient()
+            signaling.bind(snapshot: snapshot)
+            Task {
+                try? await signaling.updateSessionStatus(sessionId: snapshot.sessionId, state: "ended")
+            }
+        }
         SessionStore.clear()
+        ARLog.clearRelay()
+        broadcastActive = false
         connectionState = .idle
-        pairingCode = ""
-    }
-
-    func stopTestServer() {
-        resetSession()
-        healthTask?.cancel()
-        coordinatorService.stop()
-        coordinatorRunning = false
-        localHealthOK = false
+        detectedCode = nil
     }
 
     func dismissError() {
@@ -110,48 +136,59 @@ final class DirectTestViewModel: ObservableObject {
         errorMessage = nil
     }
 
-    private func startCoordinator() {
-        guard LanAddress.isValidIPv4(iphoneIP) else {
-            coordinatorRunning = false
-            localNetworkHint = "Connect to Wi‑Fi, allow Local Network when prompted, then tap Refresh."
-            return
-        }
-        do {
-            try coordinatorService.ensureStarted(advertisedIP: iphoneIP)
-            coordinatorRunning = true
-            localNetworkHint = "Keep this app in the foreground on the Test tab while pairing."
-        } catch {
-            coordinatorRunning = false
-            errorMessage = "Could not start pairing server on port \(TestReceiverConfig.coordinatorPort): \(error.localizedDescription)"
-            showError = true
-        }
-    }
-
-    private func startHealthPolling() {
-        healthTask?.cancel()
-        healthTask = Task {
-            while !Task.isCancelled {
-                if LanAddress.isValidIPv4(iphoneIP) {
-                    let ok = await CoordinatorHealthCheck.check(host: iphoneIP)
-                    localHealthOK = ok
-                    if !ok && coordinatorRunning {
-                        localNetworkHint = "Other devices cannot reach this iPhone yet. Allow Local Network in Settings → AndroidRemote, disable VPN, and ensure router client isolation is off."
-                    }
-                }
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-            }
-        }
-    }
-
     private func startStatusPolling() {
         statusTask?.cancel()
         statusTask = Task {
-            let connected = (try? await observeStatus.pollUntilConnected()) ?? false
-            if connected {
+            await pollUntilLive()
+        }
+    }
+
+    /// Live UI requires broadcast extension running AND relay ICE connected (not browser SDP alone).
+    private func pollUntilLive() async {
+        guard let snapshot = sessionRepository.loadSession() else { return }
+        signaling.bind(snapshot: snapshot)
+        ARLog.info("Test", "polling for live session=\(ARLog.sessionPrefix(snapshot.sessionId))")
+        var lastStatus = ""
+        for _ in 0..<240 {
+            if Task.isCancelled { return }
+            let status = (try? await signaling.pollStatus(sessionId: snapshot.sessionId)) ?? "waiting"
+            relayStatus = status
+            if status != lastStatus {
+                ARLog.info("Test", "status=\(status) session=\(ARLog.sessionPrefix(snapshot.sessionId))")
+                lastStatus = status
+            }
+            if status == "broadcasting" || status == "connecting" {
+                broadcastActive = true
+            }
+            if status == "connected", broadcastActive {
                 connectionState = .streaming
-            } else if !Task.isCancelled {
-                connectionState = .connecting
+                return
+            }
+            if status == "ended" || status == "disconnected" {
+                connectionState = .idle
+                broadcastActive = false
+                errorMessage = "Broadcast ended on relay (\(status)). Tap Link Receiver, hard-refresh the browser tab, then start broadcast again."
+                showError = true
+                return
+            }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+        }
+        ARLog.warn("Test", "pollUntilLive timeout session=\(ARLog.sessionPrefix(snapshot.sessionId))")
+    }
+
+    private func evaluateStreamingState() {
+        guard broadcastActive, connectionState == .connecting,
+              let snapshot = sessionRepository.loadSession() else { return }
+        Task {
+            signaling.bind(snapshot: snapshot)
+            let status = (try? await signaling.pollStatus(sessionId: snapshot.sessionId)) ?? ""
+            if status == "connected" {
+                connectionState = .streaming
             }
         }
+    }
+
+    var linkedSessionId: String? {
+        SessionStore.load()?.sessionId
     }
 }

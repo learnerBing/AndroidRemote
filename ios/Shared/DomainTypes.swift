@@ -40,7 +40,29 @@ struct StreamConfig: Equatable {
     var height: Int = 720
     var fps: Int = 30
     var maxBitrateKbps: Int = 2500
+    var minBitrateKbps: Int = 800
     var codec: StreamCodec = .h264
+
+    /// Chromecast / extension memory-safe default.
+    static let castReceiver = StreamConfig()
+
+    /// Broadcast extension — 720p, video-only (audio disabled, see WebRtcBroadcastEngine).
+    static let broadcastExtension = StreamConfig(
+        width: 1280,
+        height: 720,
+        fps: 30,
+        maxBitrateKbps: 2500,
+        minBitrateKbps: 800
+    )
+
+    /// Direct Mac LAN relay — same Wi‑Fi, higher resolution and bitrate.
+    static let lanRelay = StreamConfig(
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        maxBitrateKbps: 8000,
+        minBitrateKbps: 2500
+    )
 }
 
 enum ConnectionState: Equatable {
