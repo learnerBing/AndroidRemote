@@ -105,17 +105,27 @@ final class ExtensionSignalingServer: @unchecked Sendable {
         return raw
     }
 
-    /// Parses the Content-Length header value out of raw header text (lines still carry their
-    /// trailing "\r" — `.whitespacesAndNewlines` strips that along with ordinary spaces).
+    /// Parses the Content-Length header value out of raw header text.
+    ///
+    /// Swift treats "\r\n" as a *single* extended grapheme Character, not two — every real HTTP
+    /// request uses CRLF line endings, so `split(separator: "\n")` (a bare LF Character) never
+    /// finds a split point at all and silently returns the whole header block as one element,
+    /// which never has the "content-length:" prefix. That made this return 0 unconditionally,
+    /// which in turn made `completeRequest` below treat the request as "complete" the instant
+    /// headers arrived — before the body necessarily had, which is what actually produced the
+    /// intermittent bytes=0 decode failures blamed (across several prior fixes) on concurrency.
+    /// Splitting on "\r\n" as its own Character literal (valid in Swift — CRLF is a recognized
+    /// grapheme-cluster exception) matches how lines are actually delimited on the wire.
     private func parseContentLength(_ headerText: Substring) -> Int {
         headerText
-            .split(separator: "\n")
+            .split(separator: "\r\n")
             .first { $0.lowercased().hasPrefix("content-length:") }
             .flatMap { Int($0.split(separator: ":", maxSplits: 1)[1].trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0
     }
 
     private func route(_ raw: String) -> String {
-        let lines = raw.split(separator: "\n", omittingEmptySubsequences: false)
+        // Same CRLF-as-one-Character caveat as parseContentLength above.
+        let lines = raw.split(separator: "\r\n", omittingEmptySubsequences: false)
         guard let requestLine = lines.first else {
             return HttpResponseBuilder.response(status: 400, body: "Bad request", contentType: "text/plain", cors: true)
         }
