@@ -102,9 +102,15 @@
     const context = cast.framework.CastReceiverContext.getInstance();
 
     context.addCustomMessageListener(CUSTOM_CHANNEL, (event) => {
-      logLine(`custom message received, raw len=${(event.data || '').length}`);
+      logLine(`custom message received, type=${typeof event.data}`);
       try {
-        const data = JSON.parse(event.data);
+        // context.start() below declares this namespace as MessageType.JSON, which tells the
+        // CAF receiver SDK to parse the payload for us — event.data arrives as a plain object,
+        // not a JSON string. Calling JSON.parse(event.data) on an object coerces it via
+        // toString() first ("[object Object]"), which JSON.parse then rejects as invalid
+        // ("Unexpected token o in JSON at position 1") — that was silently swallowing every
+        // session_prepare message ever sent, the root cause of WebRTC never starting.
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         handleCastMessage(data);
       } catch (e) {
         logLine(`invalid cast message: ${e.message}`);
