@@ -11,7 +11,6 @@ struct MirrorHomeView: View {
                 header
                 deviceList
                 pairingSection
-                broadcastFooter
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
@@ -141,18 +140,6 @@ struct MirrorHomeView: View {
         }
     }
 
-    private var broadcastFooter: some View {
-        VStack(spacing: 10) {
-            Text("Then start screen broadcast")
-                .font(.caption)
-                .foregroundStyle(AppTheme.textSecondary)
-
-            BroadcastPickerRepresentable()
-                .frame(width: 52, height: 52)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 8)
-    }
 }
 
 /// Six-digit code entry styled for Stitch home screen.
