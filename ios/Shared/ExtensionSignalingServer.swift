@@ -103,7 +103,7 @@ final class ExtensionSignalingServer: @unchecked Sendable {
         let contentLength = headerText
             .split(separator: "\n")
             .first { $0.lowercased().hasPrefix("content-length:") }
-            .flatMap { Int($0.split(separator: ":", maxSplits: 1)[1].trimmingCharacters(in: .whitespaces)) } ?? 0
+            .flatMap { Int($0.split(separator: ":", maxSplits: 1)[1].trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0
 
         guard bodySoFar.utf8.count >= contentLength else { return nil }
         return raw
