@@ -75,7 +75,7 @@
 		E098047037B5FB11DA4E9A28 /* MirrorHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB4062C275F9036DE0137E9F /* MirrorHomeView.swift */; };
 		E3D21F5A74FF374F3C8658DE /* BroadcastPickerRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 468E02074B05FB117958D5E8 /* BroadcastPickerRepresentable.swift */; };
 		EF85FBA9EEB5D1F9A96B5EFA /* ReplayKitAudioRingBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DF156F4B3E31C7D7F6964E6 /* ReplayKitAudioRingBuffer.swift */; };
-		F12796B13C32BF6420E416CF /* GoogleCastStatic in Frameworks */ = {isa = PBXBuildFile; productRef = 6AC42CCF3D09821339D03FCD /* GoogleCastStatic */; };
+		F12796B13C32BF6420E416CF /* GoogleCastDynamic in Frameworks */ = {isa = PBXBuildFile; productRef = E3EAAC239D648B7D624440F6 /* GoogleCastDynamic */; };
 		F78E1FF127C41803FCDAE4ED /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B86C1FABE4FFA54C6B357C1 /* MainTabView.swift */; };
 		F84E1FB7A02F781095476005 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = ABBE437BAAA01252949019AE /* SystemConfiguration.framework */; };
 		FDC8C0A8C8897735965B5F33 /* UseCases.swift in Sources */ = {isa = PBXBuildFile; fileRef = B49EA16D67C03EA0E59A6088 /* UseCases.swift */; };
@@ -177,7 +177,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				43E1BCE8DA048DE41C460F2E /* WebRTC in Frameworks */,
-				F12796B13C32BF6420E416CF /* GoogleCastStatic in Frameworks */,
+				F12796B13C32BF6420E416CF /* GoogleCastDynamic in Frameworks */,
 				F84E1FB7A02F781095476005 /* SystemConfiguration.framework in Frameworks */,
 				1273916E57A8D0EDCB95E595 /* CFNetwork.framework in Frameworks */,
 				3198271E0D68B3A782607AAE /* Security.framework in Frameworks */,
@@ -441,7 +441,7 @@
 			name = AndroidRemote;
 			packageProductDependencies = (
 				B3A56BFBF37B021A3D4E373F /* WebRTC */,
-				6AC42CCF3D09821339D03FCD /* GoogleCastStatic */,
+				E3EAAC239D648B7D624440F6 /* GoogleCastDynamic */,
 			);
 			productName = AndroidRemote;
 			productReference = 1BC18A559078F285FA1E1854 /* AndroidRemote.app */;
@@ -868,11 +868,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		6AC42CCF3D09821339D03FCD /* GoogleCastStatic */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E52F66415338BFF0655CA14F /* XCRemoteSwiftPackageReference "google-cast-spm" */;
-			productName = GoogleCastStatic;
-		};
 		B3A56BFBF37B021A3D4E373F /* WebRTC */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 6E24B6DDCD6129F1A92FE18A /* XCRemoteSwiftPackageReference "WebRTC" */;
@@ -882,6 +877,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6E24B6DDCD6129F1A92FE18A /* XCRemoteSwiftPackageReference "WebRTC" */;
 			productName = WebRTC;
+		};
+		E3EAAC239D648B7D624440F6 /* GoogleCastDynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E52F66415338BFF0655CA14F /* XCRemoteSwiftPackageReference "google-cast-spm" */;
+			productName = GoogleCastDynamic;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

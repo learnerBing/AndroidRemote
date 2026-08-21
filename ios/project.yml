@@ -78,6 +78,7 @@ targets:
         NSLocalNetworkUsageDescription: "AndroidRemote uses your local network to find Chromecast / Google TV devices and to connect the Mac relay for screen recording."
         NSMicrophoneUsageDescription: "Microphone audio is mixed into the screen recording when you enable it in the broadcast picker."
         NSBonjourServices:
+          - _androidremote._tcp
           - _androidremote-test._tcp
           - _googlecast._tcp
           - _02DE7020._googlecast._tcp

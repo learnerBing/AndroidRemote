@@ -16,6 +16,20 @@ enum CastBootstrap {
         // waiting for a cast-button tap that never happens.
         options.startDiscoveryAfterFirstTapOnCastButton = false
         GCKCastContext.setSharedInstanceWith(options)
+        let filter = GCKLoggerFilter()
+        filter.minimumLevel = .verbose
+        GCKLogger.sharedInstance().filter = filter
+        GCKLogger.sharedInstance().delegate = CastSdkLogRelay.shared
         ARLog.info("Cast", "GCKCastContext configured")
+    }
+}
+
+/// Relays the Cast SDK's internal logging (discovery/session-manager internals not otherwise
+/// visible) into our own log stream, per Google's documented debugging setup.
+final class CastSdkLogRelay: NSObject, GCKLoggerDelegate {
+    static let shared = CastSdkLogRelay()
+
+    func logMessage(_ message: String, at level: GCKLoggerLevel, fromFunction function: String, location: String) {
+        ARLog.info("CastSDK", "\(function): \(message)")
     }
 }
