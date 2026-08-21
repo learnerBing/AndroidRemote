@@ -3,6 +3,7 @@ import Foundation
 /// HTTP client for ARCP signaling (include in main app + broadcast extension targets).
 final class SignalingClient: @unchecked Sendable {
     private let session: URLSession
+    private let gate = RequestGate()
     private var tvHost: String?
     private var tvPort: Int?
 
@@ -33,7 +34,7 @@ final class SignalingClient: @unchecked Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(ARCPPairRequest(code: code))
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await gate.send(request, using: session)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw CastError.invalidPairingCode
         }
@@ -84,7 +85,7 @@ final class SignalingClient: @unchecked Sendable {
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await gate.send(request, using: session)
         guard let http = response as? HTTPURLResponse else { return nil }
         if http.statusCode == 204 || data.isEmpty { return nil }
         guard http.statusCode == 200 else { return nil }
@@ -100,7 +101,7 @@ final class SignalingClient: @unchecked Sendable {
         let body = ARCPSdpMessage(sessionId: sessionId, type: type, sdp: sdp)
         request.httpBody = try JSONEncoder().encode(body)
         request.timeoutInterval = 15
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await gate.send(request, using: session)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
             ARLog.error("Signaling", "POST /sdp type=\(type) session=\(ARLog.sessionPrefix(sessionId)) HTTP \(code) url=\(url.absoluteString)")
@@ -142,7 +143,7 @@ final class SignalingClient: @unchecked Sendable {
             sdpMLineIndex: candidate.sdpMLineIndex
         )
         request.httpBody = try JSONEncoder().encode(body)
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await gate.send(request, using: session)
         return (response as? HTTPURLResponse)?.statusCode ?? -1
     }
 
@@ -157,7 +158,7 @@ final class SignalingClient: @unchecked Sendable {
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await gate.send(request, using: session)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return [] }
         let list = try JSONDecoder().decode(ARCPIceListResponse.self, from: data)
         return list.candidates.map {
@@ -174,7 +175,7 @@ final class SignalingClient: @unchecked Sendable {
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await gate.send(request, using: session)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             ARLog.warn("Signaling", "GET /status session=\(ARLog.sessionPrefix(sessionId)) failed")
             return "waiting"
@@ -195,7 +196,7 @@ final class SignalingClient: @unchecked Sendable {
             let state: String
         }
         request.httpBody = try JSONEncoder().encode(Body(sessionId: sessionId, state: state))
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await gate.send(request, using: session)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
             ARLog.error("Signaling", "POST /status failed HTTP \(code) session=\(ARLog.sessionPrefix(sessionId))")
@@ -211,6 +212,20 @@ final class SignalingClient: @unchecked Sendable {
             throw CastError.notConfigured
         }
         return url
+    }
+}
+
+/// In Cast mode, the extension's own WebRtcBroadcastEngine is a client of its own
+/// ExtensionSignalingServer (self-hosted, over loopback) — sendOffer, the per-candidate
+/// didGenerate callback, and the 1s ICE republish loop can all fire concurrent requests to that
+/// same tiny in-process server. Device logs showed SDP (effectively one request at a time)
+/// eventually getting through via retry, while ICE (many concurrent requests) almost never did
+/// even with retries added — consistent with that concurrency, not just flakiness, overwhelming
+/// the server. Actors serialize calls into them, so routing every request through one instance
+/// per client guarantees at most one is ever in flight at a time.
+private actor RequestGate {
+    func send(_ request: URLRequest, using session: URLSession) async throws -> (Data, URLResponse) {
+        try await session.data(for: request)
     }
 }
 

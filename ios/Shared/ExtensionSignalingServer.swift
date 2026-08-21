@@ -166,6 +166,8 @@ final class ExtensionSignalingServer: @unchecked Sendable {
             return handleIcePost(body: body, query: query)
         case ("GET", "/status"):
             return handleStatus(query: query)
+        case ("POST", "/status"):
+            return handleStatusPost(body: body)
         default:
             return HttpResponseBuilder.response(status: 404, body: "Not found", contentType: "text/plain", cors: true)
         }
@@ -273,6 +275,21 @@ final class ExtensionSignalingServer: @unchecked Sendable {
         let sessionId = query["sessionId"] ?? ""
         let state = locked { sessions[sessionId]?.state ?? "waiting" }
         return HttpResponseBuilder.json(ARCPStatusResponse(state: state), cors: true)
+    }
+
+    /// SignalingClient.updateSessionStatus posts here (sessionId/state JSON body) — there was no
+    /// handler for it at all, so every call got a 404. Harmless in practice since every call
+    /// site uses `try?`, but the state update itself was silently dropped.
+    private func handleStatusPost(body: String) -> String {
+        struct Body: Decodable {
+            let sessionId: String
+            let state: String
+        }
+        guard let message = try? JSONDecoder().decode(Body.self, from: Data(body.utf8)) else {
+            return HttpResponseBuilder.response(status: 400, body: "Invalid JSON", contentType: "text/plain", cors: true)
+        }
+        updateConnectionState(message.sessionId, state: message.state)
+        return HttpResponseBuilder.json(["ok": true], cors: true)
     }
 
     // MARK: - Helpers
