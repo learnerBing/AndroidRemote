@@ -94,6 +94,7 @@ final class CastSessionManager: NSObject, CastSessionManaging, @unchecked Sendab
     private let signalingChannel: GCKGenericChannel
     private var sessionStartContinuation: CheckedContinuation<Void, Error>?
     private var diagnosticGeneration = 0
+    private var pendingStartDevice: GCKDevice?
 
     private override init() {
         signalingChannel = GCKGenericChannel(namespace: CastConfig.customChannel)
@@ -190,12 +191,49 @@ final class CastSessionManager: NSObject, CastSessionManaging, @unchecked Sendab
             DispatchQueue.main.async {
                 let sessionManager = GCKCastContext.sharedInstance().sessionManager
                 sessionManager.add(self)
-                if !sessionManager.startSession(with: gckDevice) {
-                    ARLog.error("Cast", "sessionManager.startSession(with:) returned false for \(device.name)")
-                    self.sessionStartContinuation = nil
-                    continuation.resume(throwing: CastError.castSessionFailed)
+
+                // The phone-side Cast SDK can still believe a session is active (e.g. the
+                // receiver app was closed on the TV directly, so no clean `didEnd` ever
+                // reached us) — `startSession(with:)` is then a no-op that just returns
+                // false. Always force it closed first and retry once `didEnd` actually
+                // fires, so the TV relaunches the receiver fresh instead of us reporting
+                // a stale "connected" state the TV side no longer has.
+                if sessionManager.currentSession != nil {
+                    ARLog.info("Cast", "connect: ending stale session before starting fresh one with \(device.name)")
+                    self.pendingStartDevice = gckDevice
+                    if !sessionManager.endSessionAndStopCasting(true) {
+                        // Nothing to end after all — fall through and start directly.
+                        self.pendingStartDevice = nil
+                        self.beginSession(sessionManager, device: gckDevice, continuation: continuation)
+                        return
+                    }
+                    // Safety net: if `didEnd` never fires (shouldn't normally happen —
+                    // teardown is local), don't hang the continuation forever.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+                        guard let self, self.pendingStartDevice?.deviceID == gckDevice.deviceID else { return }
+                        self.pendingStartDevice = nil
+                        ARLog.warn("Cast", "connect: didEnd did not fire within 5s — starting session anyway")
+                        self.beginSession(sessionManager, device: gckDevice, continuation: continuation)
+                    }
+                    return
                 }
+
+                self.beginSession(sessionManager, device: gckDevice, continuation: continuation)
             }
+        }
+    }
+
+    /// Calls `startSessionWithDevice:` and resolves the continuation only on immediate
+    /// failure; success resolves later via `sessionManager(_:didStart:)`.
+    private func beginSession(
+        _ sessionManager: GCKSessionManager,
+        device: GCKDevice,
+        continuation: CheckedContinuation<Void, Error>
+    ) {
+        if !sessionManager.startSession(with: device) {
+            ARLog.error("Cast", "sessionManager.startSession(with:) returned false for \(device.friendlyName ?? device.deviceID)")
+            sessionStartContinuation = nil
+            continuation.resume(throwing: CastError.castSessionFailed)
         }
     }
 
@@ -288,6 +326,12 @@ extension CastSessionManager: GCKSessionManagerListener {
         ARLog.info("Cast", "session didEnd" + (error.map { " error=\($0.localizedDescription)" } ?? ""))
         if let castSession = session as? GCKCastSession {
             castSession.remove(signalingChannel)
+        }
+        if let device = pendingStartDevice {
+            pendingStartDevice = nil
+            guard let continuation = sessionStartContinuation else { return }
+            ARLog.info("Cast", "connect: stale session ended, starting fresh session with \(device.friendlyName ?? device.deviceID)")
+            beginSession(sessionManager, device: device, continuation: continuation)
         }
     }
 }
