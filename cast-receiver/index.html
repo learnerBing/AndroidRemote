@@ -48,7 +48,11 @@
     <p id="status">Waiting for iPhone…</p>
   </div>
   <div id="video-container">
-    <video id="remote-video" autoplay playsinline></video>
+    <!-- muted: V1 broadcast is video-only, and an unmuted <video autoplay> without a prior user
+         gesture gets NotAllowedError from Chromium's autoplay policy — play() then rejects and
+         the element just sits paused (black) while WebRTC keeps decoding frames underneath.
+         Already fixed the same way in test-receiver.html; this was the one place it was missed. -->
+    <video id="remote-video" autoplay playsinline muted></video>
   </div>
 
   <script>
@@ -169,6 +173,9 @@
         } else if (event.track) {
           video.srcObject = new MediaStream([event.track]);
         }
+        // Belt-and-suspenders alongside the `muted` HTML attribute above — see the comment on
+        // the <video> tag for why this is required for autoplay to actually take effect.
+        video.muted = true;
         video.play().catch(console.warn);
         showVideo();
         setStatus('Connected');
