@@ -57,16 +57,56 @@ final class ExtensionSignalingServer: @unchecked Sendable {
 
     private func handle(connection: NWConnection) {
         connection.start(queue: queue)
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 65_536) { [weak self] data, _, _, _ in
-            guard let self, let data, let request = String(data: data, encoding: .utf8) else {
+        receiveRequest(on: connection, buffer: Data())
+    }
+
+    /// A single `receive()` call is not guaranteed to deliver the full HTTP request — headers
+    /// and body can arrive in separate reads under load (e.g. the receiver's 300ms ICE polling
+    /// racing the extension's own outgoing ICE posts). Accumulate until we have complete headers
+    /// and, per Content-Length, the complete body before routing — otherwise POSTs get routed on
+    /// a truncated body and fail JSON decoding with a spurious 400.
+    private func receiveRequest(on connection: NWConnection, buffer: Data) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65_536) { [weak self] data, _, isComplete, error in
+            guard let self else {
                 connection.cancel()
                 return
             }
-            let response = self.route(request)
-            connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in
+            var buffer = buffer
+            if let data, !data.isEmpty {
+                buffer.append(data)
+            }
+            if let request = self.completeRequest(from: buffer) {
+                let response = self.route(request)
+                connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in
+                    connection.cancel()
+                })
+                return
+            }
+            if error != nil || isComplete {
                 connection.cancel()
-            })
+                return
+            }
+            self.receiveRequest(on: connection, buffer: buffer)
         }
+    }
+
+    /// Returns the full request text once headers and (per Content-Length) the full body have
+    /// arrived; nil while more data is still expected.
+    private func completeRequest(from buffer: Data) -> String? {
+        guard let raw = String(data: buffer, encoding: .utf8) else { return nil }
+        guard let headerEnd = raw.range(of: "\r\n\r\n") ?? raw.range(of: "\n\n") else {
+            return nil
+        }
+        let headerText = raw[raw.startIndex..<headerEnd.lowerBound]
+        let bodySoFar = raw[headerEnd.upperBound...]
+
+        let contentLength = headerText
+            .split(separator: "\n")
+            .first { $0.lowercased().hasPrefix("content-length:") }
+            .flatMap { Int($0.split(separator: ":", maxSplits: 1)[1].trimmingCharacters(in: .whitespaces)) } ?? 0
+
+        guard bodySoFar.utf8.count >= contentLength else { return nil }
+        return raw
     }
 
     private func route(_ raw: String) -> String {
