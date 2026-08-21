@@ -27,21 +27,32 @@ struct ConnectingView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
-            ProgressView()
-                .tint(AppTheme.primary)
-                .scaleEffect(1.1)
-                .padding(.top, 24)
-
-            if viewModel.pairedTVName != nil {
-                VStack(spacing: 10) {
-                    Text("Then start screen broadcast")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .padding(.top, 24)
-
+            // Pairing itself is genuinely automatic — a spinner is honest there. Once paired,
+            // nothing happens until the user taps the broadcast picker below; showing a spinner
+            // here as well falsely implied the app was still working on its own, so people just
+            // sat and waited for a connection that needed their tap to even start.
+            if viewModel.pairedTVName == nil {
+                ProgressView()
+                    .tint(AppTheme.primary)
+                    .scaleEffect(1.1)
+                    .padding(.top, 24)
+            } else {
+                VStack(spacing: 14) {
+                    // A colored, filled circle — not just a tinted icon glyph. RPSystemBroadcastPickerView's
+                    // own tint/icon rendering has proven unreliable in practice (this button has
+                    // gone invisible before, in a961a53, from exactly that fragility); a solid
+                    // background makes the tap target visible regardless of icon rendering.
                     BroadcastPickerRepresentable()
-                        .frame(width: 52, height: 52)
+                        .frame(width: 64, height: 64)
+                        .background(Circle().fill(AppTheme.primary))
+                        .clipShape(Circle())
+                        .shadow(color: AppTheme.primary.opacity(0.4), radius: 12, y: 4)
+
+                    Text("Tap to start casting")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(AppTheme.textPrimary)
                 }
+                .padding(.top, 24)
             }
 
             Spacer()
@@ -57,7 +68,7 @@ struct ConnectingView: View {
 
     private var statusMessage: String {
         if viewModel.pairedTVName != nil {
-            return "Establishing secure connection…"
+            return "Ready to cast — tap the button below"
         }
         return "Pairing with TV…"
     }

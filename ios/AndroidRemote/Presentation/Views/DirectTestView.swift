@@ -141,6 +141,8 @@ struct DirectTestView: View {
                 .multilineTextAlignment(.center)
             BroadcastPickerRepresentable()
                 .frame(width: 52, height: 52)
+                .background(Circle().fill(AppTheme.primary))
+                .clipShape(Circle())
                 .opacity(viewModel.linkedSessionId == nil ? 0.4 : 1)
                 .disabled(viewModel.linkedSessionId == nil)
             if viewModel.broadcastActive {
@@ -183,7 +185,10 @@ struct DirectTestView: View {
                     .font(.caption)
                     .foregroundStyle(AppTheme.success)
             }
-            BroadcastPickerRepresentable().frame(width: 52, height: 52)
+            BroadcastPickerRepresentable()
+                .frame(width: 52, height: 52)
+                .background(Circle().fill(AppTheme.primary))
+                .clipShape(Circle())
             Spacer()
             Button("Stop") { viewModel.resetSession() }
                 .foregroundStyle(AppTheme.textSecondary)

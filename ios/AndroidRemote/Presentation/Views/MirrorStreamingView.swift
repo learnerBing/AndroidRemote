@@ -49,6 +49,8 @@ struct MirrorStreamingView: View {
 
                 BroadcastPickerRepresentable()
                     .frame(width: 52, height: 52)
+                    .background(Circle().fill(AppTheme.primary))
+                    .clipShape(Circle())
 
                 Button("Stop Casting") {
                     viewModel.resetSession()

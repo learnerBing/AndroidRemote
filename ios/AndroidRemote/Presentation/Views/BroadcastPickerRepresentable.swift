@@ -8,8 +8,12 @@ struct BroadcastPickerRepresentable: UIViewRepresentable {
         picker.preferredExtension = "\(hostBundle).BroadcastExtension"
         picker.showsMicrophoneButton = false
         // Defaults to a black glyph with no background — invisible against this app's dark
-        // (#0D1117) theme. Tint it to match AppTheme.primary so it's actually visible.
-        picker.tintColor = UIColor(red: 0x58 / 255, green: 0xA6 / 255, blue: 0xFF / 255, alpha: 1)
+        // (#0D1117) theme, and RPSystemBroadcastPickerView's own tint/icon rendering has proven
+        // unreliable in practice (went invisible once before, in a961a53, from exactly this).
+        // Callers now wrap this in a solid AppTheme.primary circle background for a guaranteed
+        // visible tap target — so the icon itself needs to contrast against *that*, not the
+        // app's dark background, hence white rather than AppTheme.primary here.
+        picker.tintColor = .white
         return picker
     }
 
