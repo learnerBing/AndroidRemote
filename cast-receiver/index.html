@@ -38,6 +38,24 @@
       object-fit: contain;
     }
     #status { margin-top: 1rem; color: #8b949e; }
+    /* On-screen log — this is a Cast receiver on a TV with no accessible devtools, so this is
+       the only practical way to see what's happening on-device. Always visible (over the
+       waiting screen and over the video) so a failure after the video starts is still legible. */
+    #debug-log {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-height: 32vh;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.72);
+      color: #7ee787;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+      padding: 6px 10px;
+      white-space: pre-wrap;
+      z-index: 1000;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -54,6 +72,7 @@
          Already fixed the same way in test-receiver.html; this was the one place it was missed. -->
     <video id="remote-video" autoplay playsinline muted></video>
   </div>
+  <pre id="debug-log"></pre>
 
   <script>
     const CUSTOM_CHANNEL = 'urn:x-cast:com.androidremote.signaling';
@@ -64,6 +83,21 @@
     let signalingPort = null;
     let peerConnection = null;
     let icePollTimer = null;
+
+    const debugLines = [];
+    function logLine(msg) {
+      const ts = new Date().toISOString().substr(11, 12);
+      const line = `[${ts}] ${msg}`;
+      console.log(line);
+      debugLines.push(line);
+      if (debugLines.length > 60) debugLines.shift();
+      const el = document.getElementById('debug-log');
+      if (el) {
+        el.textContent = debugLines.join('\n');
+        el.scrollTop = el.scrollHeight;
+      }
+    }
+    logLine(`receiver loaded — origin=${location.origin}`);
 
     const context = cast.framework.CastReceiverContext.getInstance();
 
@@ -77,11 +111,13 @@
     });
 
     function handleCastMessage(msg) {
+      logLine(`cast message type=${msg.type}`);
       switch (msg.type) {
         case 'session_prepare':
           sessionId = msg.sessionId;
           signalingHost = msg.signalingHost;
           signalingPort = msg.signalingPort;
+          logLine(`session_prepare session=${String(sessionId).slice(0, 8)} relay=${signalingHost}:${signalingPort}`);
           setStatus('iPhone ready — start screen broadcast on iPhone');
           break;
       }
@@ -100,19 +136,38 @@
     }
 
     async function postJson(path, body, query = '') {
-      const res = await fetch(signalingUrl(path + query), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      return res;
+      const url = signalingUrl(path + query);
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) logLine(`POST ${path} HTTP ${res.status}`);
+        return res;
+      } catch (e) {
+        // A blocked mixed-content fetch (HTTPS page → plain-http relay) throws here as a plain
+        // "Failed to fetch" TypeError, indistinguishable from a real network error without this
+        // being on screen — this is exactly the failure mode we have no other visibility into.
+        logLine(`POST ${path} FAILED ${e.name}: ${e.message}`);
+        throw e;
+      }
     }
 
     async function getJson(path) {
-      const res = await fetch(signalingUrl(path));
-      if (res.status === 204) return null;
-      if (!res.ok) return null;
-      return res.json();
+      const url = signalingUrl(path);
+      try {
+        const res = await fetch(url);
+        if (res.status === 204) return null;
+        if (!res.ok) {
+          logLine(`GET ${path} HTTP ${res.status}`);
+          return null;
+        }
+        return res.json();
+      } catch (e) {
+        logLine(`GET ${path} FAILED ${e.name}: ${e.message}`);
+        throw e;
+      }
     }
 
     function generatePairingCode() {
@@ -132,9 +187,14 @@
     }
 
     async function waitForOffer() {
+      logLine(`polling for offer session=${String(sessionId).slice(0, 8)}`);
       for (let i = 0; i < 120; i++) {
         const msg = await getJson(`/sdp/offer?sessionId=${encodeURIComponent(sessionId)}`);
-        if (msg && msg.type === 'offer' && msg.sdp) return msg.sdp;
+        if (msg && msg.type === 'offer' && msg.sdp) {
+          logLine(`offer received bytes=${msg.sdp.length}`);
+          return msg.sdp;
+        }
+        if (i % 10 === 0 && i > 0) logLine(`still waiting for offer (attempt ${i})`);
         await sleep(500);
       }
       throw new Error('Offer timeout');
@@ -142,6 +202,7 @@
 
     async function startIcePolling() {
       if (icePollTimer) clearInterval(icePollTimer);
+      let receivedCount = 0;
       icePollTimer = setInterval(async () => {
         try {
           const list = await getJson(`/ice?sessionId=${encodeURIComponent(sessionId)}&side=sender`);
@@ -152,7 +213,9 @@
               sdpMid: c.sdpMid,
               sdpMLineIndex: c.sdpMLineIndex,
             });
+            receivedCount += 1;
           }
+          if (list.candidates.length) logLine(`added ${list.candidates.length} ICE candidate(s), total=${receivedCount}`);
         } catch (e) {
           console.warn('ICE poll error', e);
         }
@@ -161,12 +224,14 @@
 
     async function startWebRtc() {
       if (!sessionId || !signalingHost || !signalingPort) return;
+      logLine(`startWebRtc session=${String(sessionId).slice(0, 8)}`);
 
       setStatus('Waiting for iPhone screen broadcast…');
       const offerSdp = await waitForOffer();
 
       peerConnection = new RTCPeerConnection(STUN);
       peerConnection.ontrack = (event) => {
+        logLine(`ontrack kind=${event.track && event.track.kind}`);
         const video = document.getElementById('remote-video');
         if (event.streams && event.streams[0]) {
           video.srcObject = event.streams[0];
@@ -176,7 +241,9 @@
         // Belt-and-suspenders alongside the `muted` HTML attribute above — see the comment on
         // the <video> tag for why this is required for autoplay to actually take effect.
         video.muted = true;
-        video.play().catch(console.warn);
+        video.play()
+          .then(() => logLine('video.play() resolved'))
+          .catch((e) => logLine(`video.play() REJECTED ${e.name}: ${e.message}`));
         showVideo();
         setStatus('Connected');
         sendCastMessage({ type: 'status', state: 'connected' });
@@ -189,18 +256,28 @@
           candidate: event.candidate.candidate,
           sdpMid: event.candidate.sdpMid,
           sdpMLineIndex: event.candidate.sdpMLineIndex,
-        }, '?side=receiver').catch(console.error);
+        }, '?side=receiver').catch((e) => logLine(`POST /ice error: ${e.message}`));
+      };
+
+      peerConnection.onconnectionstatechange = () => {
+        logLine(`connectionState=${peerConnection.connectionState}`);
+      };
+      peerConnection.oniceconnectionstatechange = () => {
+        logLine(`iceConnectionState=${peerConnection.iceConnectionState}`);
       };
 
       await peerConnection.setRemoteDescription({ type: 'offer', sdp: offerSdp });
+      logLine('setRemoteDescription OK');
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
+      logLine('setLocalDescription OK, posting answer');
 
       await postJson('/sdp', {
         sessionId,
         type: 'answer',
         sdp: answer.sdp,
       });
+      logLine('answer posted OK');
 
       startIcePolling();
     }
@@ -210,16 +287,19 @@
     document.getElementById('code').textContent = pairingCode;
 
     context.addEventListener(cast.framework.system.EventType.SENDER_CONNECTED, () => {
+      logLine('sender connected — sending pairing_code');
       sendCastMessage({ type: 'pairing_code', code: pairingCode });
       setStatus('Code sent to iPhone — tap Connect to TV');
     });
 
     // Sender may already be connected when listener attaches.
     if (context.getSenders().length > 0) {
+      logLine('sender already connected at attach — sending pairing_code');
       sendCastMessage({ type: 'pairing_code', code: pairingCode });
     }
 
     context.addEventListener(cast.framework.system.EventType.SENDER_DISCONNECTED, () => {
+      logLine('sender disconnected — reloading');
       if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
@@ -232,7 +312,7 @@
     setInterval(() => {
       if (sessionId && signalingHost && !peerConnection) {
         startWebRtc().catch((e) => {
-          console.error(e);
+          logLine(`startWebRtc FAILED ${e.name}: ${e.message}`);
           setStatus('Connection error — waiting for broadcast…');
         });
       }
