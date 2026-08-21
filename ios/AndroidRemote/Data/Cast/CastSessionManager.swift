@@ -238,8 +238,19 @@ final class CastSessionManager: NSObject, CastSessionManaging, @unchecked Sendab
     }
 
     func sendSessionPrepare(sessionId: String, host: String, port: Int) async throws {
+        // This runs in the main app process, not the extension — every prior log we've read this
+        // session was extension-only, so this call had zero visibility. If the receiver's
+        // on-screen log never shows "session_prepare" arriving, this is the line that tells us
+        // whether it was ever actually sent (and if not, why) versus sent-but-lost in transit.
+        ARLog.info("Cast", "sendSessionPrepare session=\(ARLog.sessionPrefix(sessionId)) host=\(host) port=\(port) channelConnected=\(signalingChannel.isConnected) channelWritable=\(signalingChannel.isWritable)")
         let message = CastSignalingMessage.sessionPrepare(sessionId: sessionId, host: host, port: port)
-        try sendCastMessage(message)
+        do {
+            try sendCastMessage(message)
+            ARLog.info("Cast", "sendSessionPrepare OK session=\(ARLog.sessionPrefix(sessionId))")
+        } catch {
+            ARLog.error("Cast", "sendSessionPrepare FAILED session=\(ARLog.sessionPrefix(sessionId)) error=\(error.localizedDescription)")
+            throw error
+        }
     }
 
     func endSession() {

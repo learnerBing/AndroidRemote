@@ -102,11 +102,12 @@
     const context = cast.framework.CastReceiverContext.getInstance();
 
     context.addCustomMessageListener(CUSTOM_CHANNEL, (event) => {
+      logLine(`custom message received, raw len=${(event.data || '').length}`);
       try {
         const data = JSON.parse(event.data);
         handleCastMessage(data);
       } catch (e) {
-        console.error('Invalid cast message', e);
+        logLine(`invalid cast message: ${e.message}`);
       }
     });
 
