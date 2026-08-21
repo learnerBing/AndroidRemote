@@ -387,7 +387,11 @@ final class WebRtcBroadcastEngine: NSObject, @unchecked Sendable {
         iceRepublishTask?.cancel()
         iceRepublishTask = Task { [weak self] in
             guard let self else { return }
-            while !Task.isCancelled {
+            // Hard cap even if ICE never connects — this exists to backstop a missed initial
+            // poll, not to run for the whole broadcast. Without a bound it re-posts every local
+            // candidate every second indefinitely, which (with the per-candidate posts from
+            // didGenerate) floods this extension's own embedded HTTP server continuously.
+            for _ in 0..<30 where !Task.isCancelled {
                 let batch = self.factoryQueue.sync { self.localIceCandidates }
                 for candidate in batch where !candidate.candidate.isEmpty {
                     try? await self.signaling.sendIceCandidate(sessionId: sessionId, candidate: candidate)
@@ -524,6 +528,13 @@ extension WebRtcBroadcastEngine: RTCPeerConnectionDelegate {
         case .connected, .completed:
             extensionSignalingServer.updateConnectionState(sessionId, state: "connected")
             startStatsLogging(sessionId: sessionId)
+            // The republish loop exists to help initial connectivity if the receiver's first
+            // poll missed a candidate — once ICE is actually connected it serves no purpose and
+            // was otherwise running for the entire broadcast lifetime, flooding this ~50MB
+            // extension's own tiny HTTP server with a full re-post of every local candidate
+            // every second, indefinitely.
+            iceRepublishTask?.cancel()
+            iceRepublishTask = nil
             Task {
                 try? await signaling.updateSessionStatus(sessionId: sessionId, state: "connected")
             }
