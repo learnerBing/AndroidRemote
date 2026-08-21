@@ -120,14 +120,46 @@
     function handleCastMessage(msg) {
       logLine(`cast message type=${msg.type}`);
       switch (msg.type) {
-        case 'session_prepare':
-          sessionId = msg.sessionId;
+        case 'session_prepare': {
+          const newSessionId = msg.sessionId;
+          // A live peerConnection is deliberately kept alive across a dropped Cast control
+          // channel (see SENDER_DISCONNECTED below) so backgrounding the app doesn't kill a
+          // working stream. But when the phone starts a genuinely *new* broadcast — a different
+          // sessionId — that old connection is stale: its own offer/answer already completed, so
+          // new ICE candidates from the new session just get silently fed into it (visible as
+          // "added N ICE candidate(s)" logging forever with the picture never updating) instead
+          // of a fresh negotiation ever happening. Tear it down before adopting the new session.
+          if (sessionId && sessionId !== newSessionId && peerConnection) {
+            teardownWebRtc(`new session ${String(newSessionId).slice(0, 8)} replacing ${String(sessionId).slice(0, 8)}`);
+          }
+          sessionId = newSessionId;
           signalingHost = msg.signalingHost;
           signalingPort = msg.signalingPort;
           logLine(`session_prepare session=${String(sessionId).slice(0, 8)} relay=${signalingHost}:${signalingPort}`);
           setStatus('iPhone ready — start screen broadcast on iPhone');
           break;
+        }
       }
+    }
+
+    function teardownWebRtc(reason) {
+      logLine(`teardownWebRtc: ${reason}`);
+      if (icePollTimer) {
+        clearInterval(icePollTimer);
+        icePollTimer = null;
+      }
+      if (peerConnection) {
+        peerConnection.ontrack = null;
+        peerConnection.onicecandidate = null;
+        peerConnection.onconnectionstatechange = null;
+        peerConnection.oniceconnectionstatechange = null;
+        peerConnection.close();
+        peerConnection = null;
+      }
+      const video = document.getElementById('remote-video');
+      video.srcObject = null;
+      document.getElementById('video-container').style.display = 'none';
+      document.getElementById('waiting').style.display = 'block';
     }
 
     function setStatus(text) {
@@ -316,12 +348,7 @@
         logLine('sender disconnected — media still live, leaving WebRTC connected');
         return;
       }
-      logLine('sender disconnected — no active media, tearing down and reloading');
-      if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-      }
-      if (icePollTimer) clearInterval(icePollTimer);
+      teardownWebRtc('sender disconnected — no active media');
       location.reload();
     });
 

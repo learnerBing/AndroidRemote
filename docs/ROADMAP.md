@@ -26,6 +26,18 @@ V1 and V2 share the same **discovery, pairing, and session layer**. V2 adds new 
 - Remote control
 - QR pairing (deferred to V2)
 
+### Known gaps / near-term TODOs (not started — noted 2026-08-21)
+- **Screen rotation** — mirrored video is currently fixed-orientation (portrait); rotating the
+  iPhone doesn't rotate the cast picture. Needs handling on both the extension's capture/encode
+  side (`ios/Shared/WebRtcBroadcastEngine.swift`) and the receiver's video layout
+  (`cast-receiver/index.html`, `test-receiver.html` already has `watchVideoLayout()` reacting to
+  `videoWidth`/`videoHeight` as a reference).
+- **Audio support** — V1 is video-only by design so far (see the `muted`/video-only comments
+  throughout `cast-receiver/index.html` and `ios/Shared/ReplayKitAudioDevice.swift`). Wiring up
+  the audio track end-to-end (already partially scaffolded in `ReplayKitAudioDevice`/
+  `ReplayKitAudioRingBuffer` and in `test-receiver.html`'s separate `<audio>` element) is tracked
+  here as a deliberate near-term addition, not yet started.
+
 ### V1 delivery phases
 1. Foundation — scaffolds, signaling, Clean Architecture ✅
 2. WebRTC pipeline — extension encode + TV decode

@@ -5,7 +5,16 @@ final class CastViewModel: ObservableObject {
     @Published var devices: [CastDevice] = []
     @Published var selectedDevice: CastDevice?
     @Published var pairingCode: String = ""
-    @Published var connectionState: ConnectionState = .idle
+    // Without this, iOS auto-locks the screen after the default idle timeout during an
+    // untouched mirroring session — reported as "the screen recorder turns off on its own" if
+    // the user doesn't touch the phone for a while. Disabled only while actively streaming, not
+    // for the whole app session, so it doesn't needlessly burn battery outside of active casts.
+    @Published var connectionState: ConnectionState = .idle {
+        didSet {
+            guard oldValue != connectionState else { return }
+            UIApplication.shared.isIdleTimerDisabled = (connectionState == .streaming)
+        }
+    }
     @Published var errorMessage: String?
     @Published var showError = false
     @Published var pairedTVName: String?

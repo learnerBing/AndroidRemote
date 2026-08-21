@@ -5,7 +5,14 @@ final class DirectTestViewModel: ObservableObject {
     @Published var detectedCode: String?
     @Published var relayHost: String = ""
     @Published var relayPort: String = "8080"
-    @Published var connectionState: ConnectionState = .idle
+    // See CastViewModel's identical property for why — same auto-lock-during-broadcast issue
+    // applies here too.
+    @Published var connectionState: ConnectionState = .idle {
+        didSet {
+            guard oldValue != connectionState else { return }
+            UIApplication.shared.isIdleTimerDisabled = (connectionState == .streaming)
+        }
+    }
     @Published var errorMessage: String?
     @Published var showError = false
     @Published var broadcastActive = false
