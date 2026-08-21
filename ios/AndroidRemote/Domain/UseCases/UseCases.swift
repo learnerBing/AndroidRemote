@@ -36,13 +36,16 @@ struct PairCastDeviceUseCase {
     let castSession: CastSessionManaging
     let sessionStore: ScreenCastSessionRepository
 
-    func execute(device: CastDevice, pairingCode: String) async throws -> PairingSession {
+    /// Chromecast pairing never has a user-typed code to validate — MirrorHomeView shows no
+    /// entry field for isChromecast devices, the code is always auto-received over the trusted
+    /// Cast custom-message channel and just displayed. Comparing it against itself was a no-op
+    /// on a first attempt, but on a retry `connect(to:)` tears down a stale session and the TV
+    /// relaunches the receiver fresh with a brand-new code — while the caller's `pairingCode`
+    /// still held the old one from the first attempt, so this used to reject the retry outright.
+    func execute(device: CastDevice) async throws -> PairingSession {
         try await castSession.connect(to: device)
 
         let expectedCode = try await waitForPairingCode(timeoutSeconds: 15)
-        guard pairingCode.isEmpty || pairingCode == expectedCode else {
-            throw CastError.invalidPairingCode
-        }
 
         guard let host = LanAddress.currentWiFiIPv4() else {
             throw CastError.lanAddressUnavailable

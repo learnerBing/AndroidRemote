@@ -89,8 +89,12 @@ final class CastViewModel: ObservableObject {
         Task {
             do {
                 if device.isChromecast {
-                    let code = pairingCode.isEmpty ? (receivedTvCode ?? "") : pairingCode
-                    let session = try await wiredPairCastDevice.execute(device: device, pairingCode: code)
+                    // A retry may cause connect(to:) to relaunch the receiver with a brand-new
+                    // code — clear the stale display copies so "Code from TV: ..." doesn't keep
+                    // showing the old one while the new session is pairing.
+                    pairingCode = ""
+                    receivedTvCode = nil
+                    let session = try await wiredPairCastDevice.execute(device: device)
                     ARLog.info("Cast", "startCast succeeded, session=\(ARLog.sessionPrefix(session.sessionId))")
                     pairedTVName = device.name
                     pairingCode = session.pairingCode
